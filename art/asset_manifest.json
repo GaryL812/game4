@@ -1,0 +1,170 @@
+[
+  {
+    "name": "runner_0",
+    "category": "characters",
+    "triangles": 196,
+    "bytes": 56812
+  },
+  {
+    "name": "runner_1",
+    "category": "characters",
+    "triangles": 208,
+    "bytes": 58424
+  },
+  {
+    "name": "runner_2",
+    "category": "characters",
+    "triangles": 208,
+    "bytes": 58424
+  },
+  {
+    "name": "accessory_cap",
+    "category": "accessories",
+    "triangles": 44,
+    "bytes": 6160
+  },
+  {
+    "name": "accessory_backpack",
+    "category": "accessories",
+    "triangles": 12,
+    "bytes": 2448
+  },
+  {
+    "name": "accessory_mohawk",
+    "category": "accessories",
+    "triangles": 36,
+    "bytes": 4688
+  },
+  {
+    "name": "accessory_crown",
+    "category": "accessories",
+    "triangles": 64,
+    "bytes": 6904
+  },
+  {
+    "name": "accessory_headphones",
+    "category": "accessories",
+    "triangles": 36,
+    "bytes": 4708
+  },
+  {
+    "name": "roof_wide",
+    "category": "track",
+    "triangles": 120,
+    "bytes": 12580
+  },
+  {
+    "name": "roof_narrow",
+    "category": "track",
+    "triangles": 120,
+    "bytes": 12580
+  },
+  {
+    "name": "roof_short",
+    "category": "track",
+    "triangles": 120,
+    "bytes": 12580
+  },
+  {
+    "name": "roof_raised",
+    "category": "track",
+    "triangles": 120,
+    "bytes": 12580
+  },
+  {
+    "name": "roof_corner",
+    "category": "track",
+    "triangles": 120,
+    "bytes": 12580
+  },
+  {
+    "name": "roof_slope",
+    "category": "track",
+    "triangles": 12,
+    "bytes": 2460
+  },
+  {
+    "name": "boost",
+    "category": "interactive",
+    "triangles": 84,
+    "bytes": 9268
+  },
+  {
+    "name": "crate",
+    "category": "interactive",
+    "triangles": 36,
+    "bytes": 4644
+  },
+  {
+    "name": "wall",
+    "category": "interactive",
+    "triangles": 24,
+    "bytes": 3516
+  },
+  {
+    "name": "rail",
+    "category": "interactive",
+    "triangles": 36,
+    "bytes": 4672
+  },
+  {
+    "name": "coin",
+    "category": "interactive",
+    "triangles": 36,
+    "bytes": 4196
+  },
+  {
+    "name": "finish",
+    "category": "interactive",
+    "triangles": 192,
+    "bytes": 19324
+  },
+  {
+    "name": "checkpoint",
+    "category": "interactive",
+    "triangles": 24,
+    "bytes": 3508
+  },
+  {
+    "name": "water_tower",
+    "category": "props",
+    "triangles": 102,
+    "bytes": 10524
+  },
+  {
+    "name": "aircon",
+    "category": "props",
+    "triangles": 40,
+    "bytes": 4668
+  },
+  {
+    "name": "chimney",
+    "category": "props",
+    "triangles": 24,
+    "bytes": 3468
+  },
+  {
+    "name": "crane",
+    "category": "props",
+    "triangles": 36,
+    "bytes": 4624
+  },
+  {
+    "name": "city_block",
+    "category": "background",
+    "triangles": 24,
+    "bytes": 3536
+  },
+  {
+    "name": "shadow",
+    "category": "effects",
+    "triangles": 10,
+    "bytes": 1848
+  },
+  {
+    "name": "spark",
+    "category": "effects",
+    "triangles": 12,
+    "bytes": 2416
+  }
+]

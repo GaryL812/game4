@@ -1,0 +1,36 @@
+config_version=5
+
+[application]
+config/name="云端飞奔 · SKYLINE RUSH"
+run/main_scene="res://scenes/main.tscn"
+config/features=PackedStringArray("4.7", "GL Compatibility")
+config/icon="res://assets/icon.svg"
+
+[display]
+window/size/viewport_width=540
+window/size/viewport_height=960
+window/size/window_width_override=540
+window/size/window_height_override=960
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+window/handheld/orientation=6
+
+[rendering]
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+textures/default_filters/use_nearest_mipmap_filter=false
+textures/default_filters/use_mipmaps=false
+environment/defaults/default_clear_color=Color(0.49,0.79,0.86,1)
+anti_aliasing/quality/msaa_3d=0
+lights_and_shadows/directional_shadow/size=512
+
+[input_devices]
+pointing/emulate_touch_from_mouse=true
+pointing/emulate_mouse_from_touch=false
+
+[physics]
+common/physics_ticks_per_second=60
+
+[autoload]
+Platform="*res://scripts/platform.gd"
+Save="*res://scripts/save_data.gd"

@@ -1,0 +1,59 @@
+# 云端飞奔 · SKYLINE RUSH
+
+Blender 原创资产 + Godot 4.7.2 的 3D 屋顶跑酷竞速游戏，首关已实现。默认竖屏，支持横屏布局。包含 6 名 AI、34 段屋顶、自动跳跃、黄色加速跳板、金币、检查点、结算、8 款配色皮肤、每日挑战及本机纪录。
+
+## 运行
+
+双击 **运行游戏.cmd**。也可用本机 Godot 4.7.2 导入 `project.godot`，按 F6/F5 运行主场景。
+
+- 手机：左右拖动，或点按左右半屏。
+- 电脑：鼠标拖动/点按，A/D 或左右方向键。
+- 跳跃自动完成；黄色跳板触发加速和翻滚。
+- Esc 暂停；掉落后可免费从最近检查点继续。
+
+## 交付目录
+
+| 文件/目录 | 内容 |
+|---|---|
+| `project.godot`、`scenes/`、`scripts/` | 完整 Godot 工程 |
+| `art/` | 28 个 Blender 源文件、资源面数清单 |
+| `assets/models/` | 按角色、配饰、赛道、交互、装饰、远景、特效分类的 GLB |
+| `assets/fonts/`、`assets/audio/` | 中英文字体及授权、原创 MP3 音效/音乐 |
+| `tools/create_assets.py` | Blender 全量美术生成脚本 |
+| `tools/build_wechat.ps1` | 可重复执行的微信打包脚本 |
+| `build/wechat-portrait/`、`build/wechat-landscape/` | 微信开发者工具游客测试工程 |
+| `docs/项目实现框架.md` | 资产、模块、适配、优化和扩展方案 |
+| `docs/微信打包说明.md` | AppID/广告位配置、导入步骤与发布前验证 |
+| `docs/性能测试报告.md` | 自动化结果、桌面渲染数据、未验证项 |
+| `tests/` | 玩法回归、微信桥接与打包检查 |
+
+## 微信版本状态
+
+输出目标为 **微信小游戏**。普通微信小程序的页面运行环境与小游戏不同，不能将本工程当成普通小程序上传。
+
+目前未提供正式 AppID / 广告位 ID，因此使用 `touristappid`。工程已打包，但尚未经过微信开发者工具编译和手机真机验证，**不是已审核或可直接发布的商业版本**。激励视频只在原生关闭回调确认完整观看后发奖；未配置时不模拟奖励。分享提供原生接口；好友榜通过开放数据域读取并绘制，需正式账号环境联调。
+
+采用 [godothub 社区微信模板](https://github.com/godothub/godot-minigame/releases/tag/4.7)，并以独立的 `SkylinePlatform` 桥接微信能力。Godot 4 使用 Compatibility / WebGL2；没有 GLES2 路径。引擎放在 `engine` 分包，主包仅保留加载器、桥接与开放数据域。
+
+## 重建和检查
+
+```powershell
+# 3D 美术，保留 .blend 与 GLB
+& 'E:\blender\blender.exe' --background --python tools/create_assets.py
+# 如需重建字体/音频（已随源码提供，可跳过）
+./tools/setup_art.ps1
+# 导入
+& 'E:\godot\Godot_v4.7.2-stable_win64.exe\Godot_v4.7.2-stable_win64_console.exe' --headless --editor --path . --import
+# 核心玩法回归
+& 'E:\godot\Godot_v4.7.2-stable_win64.exe\Godot_v4.7.2-stable_win64_console.exe' --headless --path . tests/test_game.tscn
+# 微信桥接单元检查
+node tests/test_wechat.cjs
+node tests/test_package.cjs
+# 打包（首次重建先运行 tools/fetch_wechat_template.ps1）
+./tools/build_wechat.ps1
+./tools/build_wechat.ps1 -Orientation landscape
+```
+
+Blender/Godot 的绝对路径可通过脚本参数修改；上述路径对应当前电脑。`.tools` 仅是下载和构建缓存，不是游戏源码依赖，也不进入游戏包。
+
+玩法与竞速结构参考屋顶跑酷类型，角色造型、名称、关卡、配色、UI 与音频均为本项目原创，没有提取或复制原作素材。
