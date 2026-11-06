@@ -10,4 +10,8 @@ if ((Get-FileHash -LiteralPath $fontPath -Algorithm SHA256).Hash -ne $expected) 
 & $Python -m pip install 'fonttools==4.68.0' 'lameenc==1.9.0' --target (Join-Path $cachePath 'pylibs') --quiet
 if ($LASTEXITCODE -ne 0) { throw 'Art tool dependencies unavailable' }
 & $Python (Join-Path $PSScriptRoot 'subset_font.py')
+$inkFontPath=Join-Path $cachePath 'NotoSerifSC.ttf'
+Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/google/fonts/main/ofl/notoserifsc/NotoSerifSC%5Bwght%5D.ttf' -OutFile $inkFontPath
+if ((Get-FileHash -LiteralPath $inkFontPath -Algorithm SHA256).Hash -ne '050080D9255A86808F2945BFFAC582B31EF32BC36411CE29563B4961670C66F9') { throw 'Ink font source changed; review before rebuilding.' }
+& $Python (Join-Path $PSScriptRoot 'subset_ink_font.py')
 & $Python (Join-Path $PSScriptRoot 'create_audio.py')

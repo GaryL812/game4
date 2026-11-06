@@ -10,17 +10,17 @@ function paint(message) {
   const scale=width/540;
   ctx.save(); ctx.scale(scale,scale);
   const h=height/scale;
-  ctx.fillStyle='#edf6ed'; ctx.fillRect(0,0,540,h);
-  ctx.fillStyle='#173d49'; ctx.font='bold 24px sans-serif';
-  ctx.fillText('← 返回',28,60); ctx.fillText('好友天际榜',28,130);
-  ctx.font='15px sans-serif'; ctx.fillStyle='#65858a';
+  ctx.fillStyle='#f2ead4'; ctx.fillRect(0,0,540,h);
+  ctx.fillStyle='#293d34'; ctx.font='bold 24px serif';
+  ctx.fillText('← 返回',28,60); ctx.fillText('云栈行迹榜',28,130);
+  ctx.font='15px serif'; ctx.fillStyle='#7e826e';
   ctx.fillText('按完成用时排序 · 越快越靠前',28,165);
   if(!rows.length) ctx.fillText('暂无好友纪录，完成一场竞速后再来看看',28,245);
   rows.slice(0,Math.floor((h-210)/70)).forEach((row,index)=>{
     const y=201+index*70;
-    ctx.fillStyle=index===0?'#e7fb78':'#ffffff'; ctx.fillRect(26,y,488,58);
-    ctx.fillStyle='#173d49'; ctx.font='bold 20px sans-serif';ctx.fillText(String(index+1).padStart(2,'0'),42,y+37);
-    ctx.font='18px sans-serif'; ctx.fillText((row.nickname||'微信跑者').slice(0,8),100,y+36);
+    ctx.fillStyle=index===0?'#d6c8a2':'#f7f0df'; ctx.fillRect(26,y,488,58);
+    ctx.fillStyle='#293d34'; ctx.font='bold 20px serif';ctx.fillText(String(index+1).padStart(2,'0'),42,y+37);
+    ctx.font='18px serif'; ctx.fillText((row.nickname||'微信跑者').slice(0,8),100,y+36);
     ctx.fillText((row.time/1000).toFixed(2)+' 秒',383,y+36);
   });
   ctx.restore();
@@ -37,6 +37,6 @@ wx.onMessage(message=>{
     paint(message);
   },fail(){
     if(!visible)return;paint(message);
-    ctx.fillStyle='#65858a';ctx.font='16px sans-serif';ctx.fillText('请使用已登录微信及正式 AppID 测试',28,290);
+    ctx.fillStyle='#7e826e';ctx.font='16px serif';ctx.fillText('请使用已登录微信及正式 AppID 测试',28,290);
   }});
 });

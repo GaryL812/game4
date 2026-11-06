@@ -1,8 +1,8 @@
 extends Node
 
 const PATH := "user://skyline_save.json"
-const COLORS := ["#e7fb78", "#ff936b", "#7bb9ff", "#ee8ac1", "#c3a2f8", "#faf4e5", "#5cdbc3", "#ffd25c"]
-const NAMES := ["青柠先锋", "落日橙", "海盐蓝", "莓果粉", "暮光紫", "云朵白", "薄荷绿", "冠军金"]
+const COLORS := ["#b74442", "#ff936b", "#7bb9ff", "#ee8ac1", "#c3a2f8", "#faf4e5", "#5cdbc3", "#ffd25c"]
+const NAMES := ["灰袍浪客", "落日橙", "海盐蓝", "莓果粉", "暮光紫", "云朵白", "薄荷绿", "冠军金"]
 var data: Dictionary = {"version": 1, "coins": 0, "skin": 0, "owned": [0], "best": 0.0, "records": [], "day": "", "daily": {}}
 
 func _ready() -> void:

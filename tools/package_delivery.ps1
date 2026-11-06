@@ -10,7 +10,7 @@ try {
   $include=@('scripts','scenes','assets','art','docs','tools','tests','licenses')
   foreach($folder in $include){
     foreach($file in Get-ChildItem -LiteralPath (Join-Path $taskRoot $folder) -Recurse -File){
-      if($file.Extension -eq '.blend1' -or $file.Extension -eq '.import'){continue}
+      if($file.Extension -eq '.blend1' -or $file.Extension -eq '.import' -or $file.Extension -eq '.pyc' -or $file.Name.EndsWith('@')){continue}
       $relative=$file.FullName.Substring($taskRoot.Length+1).Replace('\','/')
       [IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip,$file.FullName,$relative,[IO.Compression.CompressionLevel]::Optimal)|Out-Null
     }
@@ -20,6 +20,11 @@ try {
   }
   foreach($name in @('performance_portrait.json','performance_landscape.json','package-portrait.json','package-landscape.json','tests.log','benchmark_portrait.log','benchmark_landscape.log')){
     [IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip,(Join-Path $taskRoot ('build\'+$name)),('verification/'+$name),[IO.Compression.CompressionLevel]::Optimal)|Out-Null
+  }
+  $zip.CreateEntry('verification/.gdignore')|Out-Null
+  foreach($name in @('ink_home.png','ink_race.png','ink_effects.png','result_portrait.png','result_landscape.png')){
+    $snapshot=Join-Path $taskRoot ('build\'+$name)
+    if(Test-Path -LiteralPath $snapshot){[IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip,$snapshot,('verification/'+$name),[IO.Compression.CompressionLevel]::Optimal)|Out-Null}
   }
 }finally{$zip.Dispose()}
 foreach($orientation in @('portrait','landscape')){

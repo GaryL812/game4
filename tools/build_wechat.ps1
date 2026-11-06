@@ -30,8 +30,12 @@ Set-Content -LiteralPath (Join-Path $destination 'skyline-config.js') -Value ('m
 $entry = Join-Path $destination 'game.js'
 $entryText = Get-Content -LiteralPath $entry -Raw
 $entryText = $entryText.Replace("import './glx-config'", "import './glx-config'`nimport './skyline-platform'")
-$entryText = $entryText.Replace('首次加载请耐心等待','正在抵达薄荷天际线').Replace('#4CAF50','#e7fb78')
+$entryText = $entryText.Replace('首次加载请耐心等待','正在展开山海画卷').Replace('#4CAF50','#aa4939').Replace('#ffffff','#293d34').Replace("backgroundImage: 'images/background.jpg'", "backgroundImage: ''").Replace('visible: true','visible: false')
 Set-Content -LiteralPath $entry -Value $entryText -Encoding utf8
+$loaderPath=Join-Path $destination 'godot-loader.js'
+$loaderText=Get-Content -LiteralPath $loaderPath -Raw
+$loaderText=$loaderText.Replace('ctx.clearRect(0, 0, width, height);', "ctx.fillStyle = '#f2ead4'; ctx.fillRect(0, 0, width, height);")
+Set-Content -LiteralPath $loaderPath -Value $loaderText -Encoding utf8
 # Prefer standard WebGL2 for predictable cross-device behavior; GLX can be enabled after QA.
 Set-Content -LiteralPath (Join-Path $destination 'glx-config.js') -Value 'GameGlobal.__GODOT_DISABLE_WXGLX = true;' -Encoding utf8
 $gameConfig = @{deviceOrientation=$Orientation;openDataContext='open-data';'iOSHighPerformance'= $true;'iOSHighPerformance+'=$true;subpackages=@(@{name='engine';root='engine/'})}

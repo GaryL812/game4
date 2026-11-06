@@ -17,7 +17,7 @@ for(const orientation of ['portrait','landscape']){
   check(!fs.readFileSync(path.join(dir,'skyline-config.js'),'utf8').includes('adunit-test'),'no test advertisement identity shipped');
 }
 const manifest=JSON.parse(fs.readFileSync(path.join(root,'art','asset_manifest.json'),'utf8'));
-check(manifest.length===28,'all 28 Blender models have a manifest entry');
+check(manifest.length===45,'all 45 Blender models have a manifest entry');
 check(manifest.filter(x=>x.category==='characters').every(x=>x.triangles<=500),'character triangle budget');
 check(manifest.filter(x=>x.category==='track').every(x=>x.triangles<=300),'track module triangle budget');
 console.log(`PACKAGE_TESTS ${checks}/${checks} passed`);

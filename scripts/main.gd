@@ -18,8 +18,8 @@ var taken_coins: Dictionary = {}
 var final_rank := 0
 var reward := 0
 var doubled := false
-var checkpoint_flash := 0.0
-var last_checkpoint := 0.0
+var race_rng := RandomNumberGenerator.new()
+var camera_height := 0.0
 var dragging := false
 var finger := -1
 var drag_origin := Vector2.ZERO
@@ -31,30 +31,36 @@ var sample_count := 0
 var performance_samples: Array[Dictionary] = []
 var capture_path := ""
 var capture_clock := 0.0
+var capture_delay := 3.0
 var benchmark := false
-var fall_z := 0.0
 var benchmark_save: Dictionary = {}
 var audio: SkylineAudio
 var slow_samples := 0
 var frame_peak_calls := 0
 var frame_peak_primitives := 0
 var measured_frames := 0
+var benchmark_next_log := 10.0
+var finish_reveal := 1.0
 
 func _ready() -> void:
+	Engine.max_fps=60
+	race_rng.randomize()
 	adapt_window()
 	get_window().size_changed.connect(adapt_window)
 	Input.emulate_touch_from_mouse = Platform.bridge == null
 	audio = AudioScript.new()
 	add_child(audio)
 	var keys := ["runner_0", "runner_1", "runner_2", "accessory_cap", "accessory_backpack", "accessory_mohawk", "accessory_crown", "accessory_headphones", "roof_wide", "roof_narrow", "roof_short", "roof_raised", "roof_corner", "roof_slope", "boost", "crate", "wall", "rail", "coin", "finish", "checkpoint", "water_tower", "aircon", "chimney", "crane", "city_block", "shadow", "spark"]
+	keys.append("runner_wanderer")
+	keys.append_array(["deck_stone","deck_wood","deck_eaves","deck_bridge","basket","screen","bell","ink_pad","cloud_pad","finish_scroll","pavilion","pagoda","ink_drop"])
 	for key in keys:
 		var category := "interactive"
 		if key.begins_with("runner_"): category = "characters"
 		elif key.begins_with("accessory_"): category = "accessories"
-		elif key.begins_with("roof_"): category = "track"
-		elif key in ["water_tower", "aircon", "chimney", "crane"]: category = "props"
+		elif key.begins_with("roof_") or key.begins_with("deck_"): category = "track"
+		elif key in ["water_tower", "aircon", "chimney", "crane", "pavilion", "pagoda"]: category = "props"
 		elif key == "city_block": category = "background"
-		elif key in ["shadow", "spark"]: category = "effects"
+		elif key in ["shadow", "spark", "ink_drop"]: category = "effects"
 		models[key] = load("res://assets/models/%s/%s.glb" % [category, key])
 	track = TrackData.new()
 	setup_environment()
@@ -66,16 +72,39 @@ func _ready() -> void:
 	hud = HudScript.new()
 	canvas.add_child(hud)
 	hud.setup(self)
+	var paper := ColorRect.new()
+	canvas.add_child(paper)
+	paper.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	paper.mouse_filter=Control.MOUSE_FILTER_IGNORE
+	var paper_material := ShaderMaterial.new()
+	paper_material.shader=preload("res://scripts/paper_overlay.gdshader")
+	paper_material.set_shader_parameter("paper_grain",load("res://assets/textures/paper_grain.png"))
+	paper.material=paper_material
 	reset_runners()
 	Platform.rewarded.connect(_ad_finished)
 	Platform.app_hidden.connect(_pause_on_hide)
 	if Platform.low_end: get_viewport().scaling_3d_scale = .75
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--capture="): capture_path = arg.trim_prefix("--capture=")
+		if arg.begins_with("--capture-delay="): capture_delay=arg.trim_prefix("--capture-delay=").to_float()
+		if arg in ["--review-climb", "--review-side"]:
+			state="race"
+			var roof: Dictionary=track.sections[1][0]
+			player.grounded=false
+			if arg=="--review-climb": player.position=Vector3(roof.x,float(roof.height)-3.5,float(roof.start)-.4)
+			else: player.position=Vector3(float(roof.x)-float(roof.width)*.5-.3,float(roof.height)-1.5,float(roof.start)+7)
+			player.target_x=player.position.x
+		if arg=="--review-boost":
+			state="race"
+			var pad: Dictionary=track.boosts[0]
+			player.position=Vector3(pad.x,pad.y,float(pad.z)-.2)
+			player.target_x=player.position.x
+			player.grounded=true
 		if arg == "--race-preview": start_race(); countdown = 0; state = "race"
 		if arg.begins_with("--screen=") and arg.trim_prefix("--screen=") in ["menu", "shop", "daily", "leaderboard"]: state = arg.trim_prefix("--screen=")
 		if arg == "--benchmark":
 			benchmark = true
+			race_rng.seed = 55213
 			audio.muted = true
 			benchmark_save = Save.data.duplicate(true)
 			start_race()
@@ -93,22 +122,22 @@ func setup_environment() -> void:
 	var env_node := WorldEnvironment.new()
 	var env := Environment.new()
 	env.background_mode = Environment.BG_SKY
-	env.background_color = Color("8ccbd5")
+	env.background_color = Color("e9e4d2")
 	var sky := Sky.new()
 	var sky_material := ProceduralSkyMaterial.new()
-	sky_material.sky_top_color = Color("61b5cb")
-	sky_material.sky_horizon_color = Color("c0e9df")
-	sky_material.ground_horizon_color = Color("9ccfd4")
-	sky_material.ground_bottom_color = Color("70b6c8")
+	sky_material.sky_top_color = Color("e2ddc9")
+	sky_material.sky_horizon_color = Color("f1ecd9")
+	sky_material.ground_horizon_color = Color("ede8d5")
+	sky_material.ground_bottom_color = Color("dcdcca")
 	sky_material.sun_angle_max = 0
 	sky.sky_material = sky_material
 	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color("d8e9e3")
+	env.ambient_light_color = Color("f1ecdb")
 	env.ambient_light_energy = .8
 	env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
 	env.fog_enabled = true
-	env.fog_light_color = Color("8ccbd5")
+	env.fog_light_color = Color("e9e4d2")
 	env.fog_density = .0055
 	env_node.environment = env
 	add_child(env_node)
@@ -120,7 +149,7 @@ func setup_environment() -> void:
 	add_child(sun)
 	camera = Camera3D.new()
 	camera.fov = 58
-	camera.far = 130
+	camera.far = 230
 	camera.current = true
 	add_child(camera)
 
@@ -133,10 +162,24 @@ func reset_runners() -> void:
 	for i in 7:
 		var racer := RunnerScript.new()
 		add_child(racer)
-		racer.setup(i, self, models["runner_%d" % (i % 3)], Color(Save.COLORS[(i+1) % 8]))
+		racer.setup(i, self, models["runner_wanderer"] if i==0 else models["runner_%d" % (i % 3)], Color(Save.COLORS[(i+1) % 8]))
 		runners.append(racer)
 	player = runners[0]
+	for i in runners.size():
+		var racer := runners[i]
+		var stage: int=[0,0,1,3,4,6,7][i]
+		var routes: Array=track.sections[stage]
+		var roof: Dictionary=routes[race_rng.randi_range(0,routes.size()-1)]
+		var z := race_rng.randf_range(-4.5,-2.0) if i==0 else float(roof.start)+race_rng.randf_range(11,17)
+		if i==1: z=race_rng.randf_range(3,7)
+		if i==2: z=race_rng.randf_range(38,42)
+		var half := float(roof.width)*.5-.9
+		var x := float(roof.x)+race_rng.randf_range(-minf(half,4.5),minf(half,4.5))
+		racer.position = Vector3(x,float(roof.height),z)
+		racer.target_x = racer.position.x
+		racer.remember_safe(roof)
 	taken_coins.clear()
+	update_runner_visibility()
 
 func start_race() -> void:
 	audio.start()
@@ -146,7 +189,6 @@ func start_race() -> void:
 	reward = 0
 	final_rank = 0
 	doubled = false
-	last_checkpoint = 0
 	performance_samples.clear()
 	frame_peak_calls = 0
 	frame_peak_primitives = 0
@@ -154,27 +196,52 @@ func start_race() -> void:
 	state = "countdown"
 
 func _physics_process(dt: float) -> void:
-	checkpoint_flash = maxf(0, checkpoint_flash - dt)
 	if state == "countdown":
 		countdown -= dt
 		if countdown <= 0: state = "race"
 	elif state == "race":
 		elapsed += dt
+		if benchmark and elapsed>=benchmark_next_log:
+			print("BENCHMARK_PROGRESS ",elapsed," z=",player.position.z," mode=",player.traversal)
+			benchmark_next_log+=10
+		if benchmark and elapsed>140:
+			push_error("Benchmark exceeded 140s: "+str(player.position))
+			get_tree().quit(1)
 		if benchmark: player.update_ai(dt)
 		var direction := float(Input.is_physical_key_pressed(KEY_D) or Input.is_physical_key_pressed(KEY_RIGHT)) - float(Input.is_physical_key_pressed(KEY_A) or Input.is_physical_key_pressed(KEY_LEFT))
-		if direction != 0: player.target_x = clampf(player.target_x + direction * dt * 10, -7.8, 7.8)
+		if direction != 0: player.target_x = clampf(player.target_x + direction * dt * 10, -10, 10)
 		for racer in runners: racer.tick(dt, elapsed)
-		if player.checkpoint > last_checkpoint:
-			last_checkpoint = player.checkpoint
-			checkpoint_flash = 1.7
 		if player.finished: finish_race()
 	if state != "paused": world.update_view(player.position.z, dt)
-	for racer in runners:
-		racer.visible = absf(racer.position.z - player.position.z) < 70
-		if racer.animation: racer.animation.speed_scale = 0 if state in ["paused", "revive"] else 1
+	update_runner_visibility()
 	update_camera(dt)
 
+func update_runner_visibility() -> void:
+	# Keep two nearby rivals on screen. The others remain physically farther away,
+	# simulating their actual progress outside the drawing window.
+	var first: RoofRunner=null
+	var second: RoofRunner=null
+	var first_distance := INF
+	var second_distance := INF
+	for racer in runners:
+		if racer.is_player: continue
+		var delta := racer.position.z-player.position.z
+		if delta < -10 or delta > 52: continue
+		var distance := absf(delta)
+		if distance<first_distance:
+			second=first
+			second_distance=first_distance
+			first=racer
+			first_distance=distance
+		elif distance<second_distance:
+			second=racer
+			second_distance=distance
+	for racer in runners:
+		racer.visible=racer.is_player or racer==first or racer==second
+		if racer.animation: racer.animation.speed_scale=0 if state=="paused" or not racer.visible else 1
+
 func _process(dt: float) -> void:
+	if state=="result": finish_reveal=minf(1,finish_reveal+dt*1.6)
 	if state == "race":
 		if elapsed > 2:
 			frame_peak_calls = maxi(frame_peak_calls, int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)))
@@ -190,19 +257,34 @@ func _process(dt: float) -> void:
 				get_viewport().scaling_3d_scale = .7
 	if not capture_path.is_empty():
 		capture_clock += dt
-		if capture_clock > 3:
+		if capture_clock > capture_delay:
+			var output_path := capture_path
+			capture_path=""
 			await RenderingServer.frame_post_draw
-			get_viewport().get_texture().get_image().save_png(capture_path)
+			get_viewport().get_texture().get_image().save_png(output_path)
 			print("RENDER_METRICS ", JSON.stringify({"fps": Engine.get_frames_per_second(), "draw_calls": Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME), "primitives": Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME)}))
-			print("CAPTURE_OK ", capture_path)
+			print("CAPTURE_OK ", output_path)
+			audio.shutdown()
+			await get_tree().create_timer(.08).timeout
 			get_tree().quit()
-			capture_path = ""
 
 func update_camera(dt: float) -> void:
 	var z := player.position.z
 	var menu_view := state in ["menu", "shop", "daily", "leaderboard"]
-	var desired := Vector3(14, 18, -22) if menu_view else Vector3(player.position.x * .3, 15.5, z - 18)
-	var target := Vector3(0, 0, 8) if menu_view else Vector3(player.position.x * .25, .7, z + 12)
+	var roof_y := track.height_at(player.position.x,z)
+	if not is_finite(roof_y): roof_y = player.safe_position.y
+	var desired_y := maxf(roof_y,player.position.y-1.5)
+	camera_height=lerpf(camera_height,desired_y,1-exp(-dt*3.2))
+	var follow_x := player.position.x*.6
+	if player.traversal=="side_slide": follow_x=player.position.x+player.wall_side*4.5
+	var landscape := get_window().content_scale_size.x > get_window().content_scale_size.y
+	var camera_lift := 5.9 if landscape else 7.0
+	var follow_distance := 9.4 if landscape else 11.5
+	var desired := Vector3(follow_x, camera_height + camera_lift, z - follow_distance)
+	var target := Vector3(player.position.x * .45, camera_height + 2.45, z + 13.0)
+	if menu_view:
+		desired = Vector3(1.7, camera_height + camera_lift + .8, -16.0)
+		target = Vector3(-.6, camera_height + 2.5, 16.0)
 	camera.position = camera.position.lerp(desired, 1 - exp(-dt * 6))
 	camera.look_at(target)
 	camera.fov = lerpf(camera.fov, 64.0 if player.boost_left > 0 else 58.0, minf(1, dt * 4))
@@ -211,20 +293,20 @@ func collect_coins(racer: RoofRunner) -> void:
 	for i in track.coins.size():
 		if taken_coins.has(i): continue
 		var coin := track.coins[i]
-		if absf(racer.position.z - float(coin.z)) < 1 and absf(racer.position.x - float(coin.x)) < 1.0 and racer.position.y > -.5 and racer.position.y < 2:
+		if absf(racer.position.z - float(coin.z)) < 1 and absf(racer.position.x - float(coin.x)) < 1.0 and absf(racer.position.y-(float(coin.y)-1.0)) < 1.5:
 			taken_coins[i] = true
 			racer.collected += 1
 			audio.cue("coin")
-			world.burst(Vector3(coin.x, 1, coin.z), 3)
+			world.burst(Vector3(coin.x, coin.y, coin.z), 3,"coin")
 
 func emit_fx(pos: Vector3, kind: String) -> void:
-	world.burst(pos, 12 if kind in ["boost", "hit"] else 5)
+	world.burst(pos, 8 if kind == "boost" else (2 if kind=="hit" else 5),kind)
 	audio.cue(kind)
 	if kind == "hit": hud.say("碰到障碍了，寻找空隙继续跑")
 
 func on_player_fall() -> void:
 	finger = -1
-	state = "revive"
+	# Recovery is immediate and keeps the race running.
 
 func player_rank() -> int:
 	if final_rank > 0: return final_rank
@@ -241,6 +323,7 @@ func finish_race() -> void:
 	world.burst(player.position, 20)
 	audio.cue("finish")
 	state = "result"
+	finish_reveal=0
 	var file := FileAccess.open("user://performance_last_race.json", FileAccess.WRITE)
 	if file: file.store_string(JSON.stringify(performance_samples, "\t"))
 	if benchmark:
@@ -279,9 +362,6 @@ func ui_action(action: String, extra := -1) -> void:
 			if doubled: return
 			ad_context = "double"
 			Platform.request_ad()
-		"revive_ad":
-			ad_context = "revive"
-			Platform.request_ad()
 		"share":
 			Platform.share_result(final_rank, elapsed)
 			if Platform.bridge == null: hud.say("微信版本可分享本局战绩")
@@ -295,20 +375,13 @@ func _ad_finished(completed: bool) -> void:
 		Save.data.coins += reward
 		Save.persist()
 		hud.say("双倍奖励已存入钱包")
-	elif ad_context == "revive" and state == "revive":
-		var safe_z := fall_z
-		if not track.platform_at(0, safe_z):
-			safe_z = (floorf((safe_z + 8) / TrackData.STRIDE) + 1) * TrackData.STRIDE - 6
-		player.position = Vector3(0, 0, minf(safe_z, TrackData.FINISH - 3))
-		player.target_x = 0
-		player.invulnerable = 2
-		state = "race"
 
 func _pause_on_hide() -> void:
 	finger = -1
 	if state == "race": state = "paused"
 
 func _unhandled_input(event: InputEvent) -> void:
+	if benchmark: return
 	if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
 		if state == "race": state = "paused"
 		elif state == "paused": state = "race"
@@ -321,9 +394,11 @@ func _unhandled_input(event: InputEvent) -> void:
 			drag_distance = 0
 		elif not event.pressed and event.index == finger:
 			if drag_distance < 12:
-				player.target_x = clampf(player.target_x + (-3.5 if event.position.x < get_viewport().get_visible_rect().size.x * .5 else 3.5), -7.8, 7.8)
+				var direction := -1 if event.position.x < get_viewport().get_visible_rect().size.x*.5 else 1
+				var current_lane := clampi(roundi(player.target_x/6.0)+1,0,2)
+				player.target_x=TrackData.LANES[clampi(current_lane+direction,0,2)]
 			finger = -1
 	elif event is InputEventScreenDrag and event.index == finger:
 		var delta: float = event.position.x - drag_origin.x
 		drag_distance = maxf(drag_distance, absf(delta))
-		player.target_x = clampf(drag_start_x + delta / get_viewport().get_visible_rect().size.x * 18, -7.8, 7.8)
+		player.target_x = clampf(drag_start_x + delta / get_viewport().get_visible_rect().size.x * 20, -10, 10)

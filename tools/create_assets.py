@@ -1,9 +1,12 @@
 """Run with Blender --background --python tools/create_assets.py.
 All shipped 3D geometry originates here. Coordinates are converted by glTF.
 """
-import bpy, math, json, os
+import bpy, math, json, os, sys
 from mathutils import Vector
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(ROOT,'tools'))
+from wanderer_mesh import build_wanderer, render_preview
+from ink_scene_assets import generate_ink_assets
 OUT = os.path.join(ROOT, 'assets', 'models')
 os.makedirs(OUT, exist_ok=True)
 os.makedirs(os.path.join(ROOT, 'art'), exist_ok=True)
@@ -65,21 +68,31 @@ def export(name, category, animated=False):
         export_skins=animated,export_all_influences=False,export_apply=False,
         export_materials='EXPORT',export_cameras=False,export_lights=False)
     manifest.append({'name':name,'category':category,'triangles':tris,'bytes':os.path.getsize(path)})
-    bpy.ops.wm.save_as_mainfile(filepath=os.path.join(ROOT,'art',name+'.blend'),compress=True)
+    try:
+        bpy.ops.wm.save_as_mainfile(filepath=os.path.join(ROOT,'art',name+'.blend'),compress=True)
+    except RuntimeError:
+        # Windows thumbnailing / an open Blender window may hold a source file.
+        # Keep that file intact and save the regenerated source alongside it.
+        alternative=os.path.join(ROOT,'art',name+'_generated.blend')
+        bpy.ops.wm.save_as_mainfile(filepath=alternative,compress=True)
+        print('SOURCE_IN_USE_SAVED_ALONGSIDE',name,alternative)
     for old in [os.path.join(OUT,name+'.glb'),os.path.join(OUT,name+'.glb.import')]:
         if os.path.isfile(old):os.unlink(old)
 def character(name, variant=0):
     clear()
-    # Bone-pivoted, rigid-weighted rounded geometry: <500 triangles total.
-    ellipsoid('head',(0,0,1.57),(.22,.20,.23),'white','Head')
-    ellipsoid('torso',(0,0,1.06),(.24,.16,.34),'white','Spine')
-    box('visor',(0,-.178,1.60),(.27,.045,.065),'dark','Head')
-    for side,x in [('L',-.29),('R',.29)]:
-        ellipsoid('arm'+side,(x,0,1.01),(.085,.085,.29),'white','Arm'+side,6,3)
-        ellipsoid('leg'+side,(x*.48,0,.39),(.105,.115,.34),'white','Leg'+side,6,3)
-        box('shoe'+side,(x*.48,-.06,.075),(.22,.35,.15),'dark','Leg'+side)
-    if variant==1: box('headband',(0,0,1.70),(.46,.42,.065),'gold','Head')
-    if variant==2: box('chest',(0,-.16,1.1),(.31,.035,.18),'dark','Spine')
+    if variant==3:
+        build_wanderer(globals())
+    else:
+        # Bone-pivoted, rigid-weighted rounded geometry: <500 triangles total.
+        ellipsoid('head',(0,0,1.57),(.22,.20,.23),'white','Head')
+        ellipsoid('torso',(0,0,1.06),(.24,.16,.34),'white','Spine')
+        box('visor',(0,-.178,1.60),(.27,.045,.065),'dark','Head')
+        for side,x in [('L',-.29),('R',.29)]:
+            ellipsoid('arm'+side,(x,0,1.01),(.085,.085,.29),'white','Arm'+side,6,3)
+            ellipsoid('leg'+side,(x*.48,0,.39),(.105,.115,.34),'white','Leg'+side,6,3)
+            box('shoe'+side,(x*.48,-.06,.075),(.22,.35,.15),'dark','Leg'+side)
+        if variant==1: box('headband',(0,0,1.70),(.46,.42,.065),'gold','Head')
+        if variant==2: box('chest',(0,-.16,1.1),(.31,.035,.18),'dark','Spine')
     mesh=join_meshes(name)
     arm_data=bpy.data.armatures.new('RunnerRig'); rig=bpy.data.objects.new('RunnerRig',arm_data)
     bpy.context.collection.objects.link(rig); bpy.context.view_layer.objects.active=rig
@@ -88,13 +101,16 @@ def character(name, variant=0):
       'Head':((0,0,1.35),(0,0,1.8),'Spine'),
       'ArmL':((-.29,0,1.27),(-.29,0,.72),'Spine'),'ArmR':((.29,0,1.27),(.29,0,.72),'Spine'),
       'LegL':((-.14,0,.72),(-.14,0,.05),'Root'),'LegR':((.14,0,.72),(.14,0,.05),'Root')}
+    if variant==3:
+        defs['Cape']=((0,.07,1.34),(0,.3,.45),'Spine')
+        defs['Weapon']=((.32,-.08,1.12),(.7,-.1,.5),'Spine')
     for n,(h,t,p) in defs.items():
         b=arm_data.edit_bones.new(n);b.head=h;b.tail=t
         if p:b.parent=arm_data.edit_bones[p]
     bpy.ops.object.mode_set(mode='OBJECT')
     mod=mesh.modifiers.new('Skin','ARMATURE');mod.object=rig;mesh.parent=rig
     rig.animation_data_create()
-    for anim,frames in [('Run',24),('Jump',24),('Land',12),('Flip',18),('Hit',18),('Celebrate',36)]:
+    for anim,frames in [('Run',24),('Jump',24),('Land',12),('Flip',18),('Hit',18),('Celebrate',36),('Climb',24),('SideSlide',24)]:
         action=bpy.data.actions.new(anim);rig.animation_data.action=action
         for f in sorted(set(list(range(1,frames+1,3))+[frames])):
             t=(f-1)/(frames-1);wave=math.sin(t*math.tau)
@@ -119,6 +135,25 @@ def character(name, variant=0):
                 rig.pose.bones['ArmL'].rotation_euler.z=-2.5
                 rig.pose.bones['ArmR'].rotation_euler.z=2.5
                 rig.pose.bones['Root'].location.z=abs(wave)*.18
+            elif anim=='Climb':
+                rig.pose.bones['ArmL'].rotation_euler.x=-2.6+wave*.4
+                rig.pose.bones['ArmR'].rotation_euler.x=-2.6-wave*.4
+                rig.pose.bones['LegL'].rotation_euler.x=.7+wave*.35
+                rig.pose.bones['LegR'].rotation_euler.x=.7-wave*.35
+                rig.pose.bones['Spine'].rotation_euler.x=.12
+            elif anim=='SideSlide':
+                rig.pose.bones['Root'].location.z=-.3
+                rig.pose.bones['Spine'].rotation_euler.x=-.45
+                rig.pose.bones['LegL'].rotation_euler.x=-1.2
+                rig.pose.bones['LegR'].rotation_euler.x=.7
+                rig.pose.bones['ArmL'].rotation_euler.z=-1.1
+                rig.pose.bones['ArmR'].rotation_euler.x=-1.3
+            if variant==3:
+                rig.pose.bones['Cape'].rotation_euler.x=.12*wave if anim=='Run' else (.18 if anim in ['Jump','Flip'] else 0)
+                rig.pose.bones['Cape'].rotation_euler.y=.07*wave
+                rig.pose.bones['Weapon'].rotation_euler.x=.65 if anim=='Climb' else .06*wave
+                if anim=='Run':
+                    rig.pose.bones['ArmR'].rotation_euler.x=-.2
             for p in rig.pose.bones:
                 p.keyframe_insert(data_path='rotation_euler',frame=f)
                 p.keyframe_insert(data_path='location',frame=f)
@@ -128,6 +163,7 @@ def character(name, variant=0):
     bpy.context.scene.frame_set(1)
     export(name,'characters',True)
 for v in range(3):character('runner_'+str(v),v)
+character('runner_wanderer',3)
 for name in ['cap','backpack','mohawk','crown','headphones']:
     clear()
     if name=='cap':
@@ -147,7 +183,7 @@ for name,width,length,height in [('roof_wide',14,24,8),('roof_narrow',10,24,8),(
     box('roof',(0,0,height+.10),(width+.3,length+.3,.2),'roof')
     for x in [-width/2,width/2]:box('trim',(x,0,height+.23),(.18,length,.16),'edge')
     for x in [-width/2-.01,width/2+.01]:
-        for z in [2,4,6]:box('facade',(x,0,z),(.04,length*.85,.13),'edge')
+        for z in [4]:box('facade',(x,0,z),(.04,length*.85,.13),'edge')
     export(name,'track')
 clear()
 box('roof',(0,0,.25),(14,16,.5),'roof')
@@ -166,7 +202,7 @@ clear();box('wall',(0,0,.9),(3.6,.75,1.8),'blue');box('cap',(0,0,1.85),(3.75,.9,
 clear()
 for x in [-1.3,1.3]:box('post',(x,0,.6),(.13,.14,1.2),'dark')
 box('rail',(0,0,1.16),(2.8,.15,.15),'orange');export('rail','interactive')
-clear();cylinder('coin',(0,0,.42),.42,.13,'gold',10);bpy.context.object.rotation_euler.x=math.pi/2;export('coin','interactive')
+clear();cylinder('coin',(0,0,.42),.42,.13,'gold',8);bpy.context.object.rotation_euler.x=math.pi/2;export('coin','interactive')
 clear()
 for x in [-6,6]:box('pillar',(x,0,2),(0.36,.45,4),'gold')
 box('banner',(0,0,3.9),(12.5,.5,.85),'dark')
@@ -184,9 +220,14 @@ export('water_tower','props')
 clear();box('unit',(0,0,.38),(1.5,1.1,.76),'white');cylinder('fan',(0,0,.8),.4,.05,'dark',8);export('aircon','props')
 clear();box('shaft',(0,0,.7),(.8,.8,1.4),'orange');box('top',(0,0,1.4),(1,1,.2),'white');export('chimney','props')
 clear();box('tower',(0,0,6),(.4,.4,12),'gold');box('arm',(0,0,11),(12,.35,.35),'gold');box('cable',(4,0,8),(.05,.05,6),'dark');export('crane','props')
-clear();box('tower',(0,0,4),(5,5,8),'blue');box('rim',(0,0,8),(5.3,5.3,.25),'roof');export('city_block','background')
+clear();box('tower',(0,0,4),(5,5,8),'blue');export('city_block','background')
 clear()
 bpy.ops.mesh.primitive_circle_add(vertices=12,radius=.46,fill_type='NGON');finish_obj(bpy.context.object,'dark');export('shadow','effects')
 clear();box('spark',(0,0,.035),(.07,.07,.07),'gold');export('spark','effects')
+generate_ink_assets(globals())
 with open(os.path.join(ROOT,'art','asset_manifest.json'),'w',encoding='utf8') as f:json.dump(manifest,f,ensure_ascii=False,indent=2)
 print('ASSET_BUILD_OK',len(manifest),'models',sum(x['triangles'] for x in manifest),'unique triangles')
+
+# Keep the model source and ship a direct Blender render for visual review.
+bpy.ops.wm.open_mainfile(filepath=os.path.join(ROOT,'art','runner_wanderer.blend'))
+render_preview(globals())
