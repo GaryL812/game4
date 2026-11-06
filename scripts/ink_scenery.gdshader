@@ -9,27 +9,33 @@ void vertex() {
 	opacity = INSTANCE_CUSTOM.g;
 	// Tile coordinates are in 256 px units. Each tile has a transparent gutter.
 	vec4 tile = vec4(0.0, 0.0, 4.0, 2.0);
-	if (kind < .5) {
-		// Pin the distant painting to the view and project it beyond the track.
-		float aspect = VIEWPORT_SIZE.x / VIEWPORT_SIZE.y;
-		float wide = smoothstep(.65, 1.55, aspect);
-		vec2 extent = vec2(max(2.10, 1.86 / aspect), mix(.93, 1.20, wide));
-		vec2 screen = VERTEX.xy * extent + vec2(0.0, mix(.57, .48, wide));
-		float distance_to_camera = 190.0;
-		vec2 view = screen * distance_to_camera / abs(vec2(PROJECTION_MATRIX[0][0], PROJECTION_MATRIX[1][1]));
-		POSITION = PROJECTION_MATRIX * vec4(view, -distance_to_camera, 1.0);
-	} else {
-		POSITION = PROJECTION_MATRIX * MODELVIEW_MATRIX * vec4(VERTEX, 1.0);
-		UV.x = 1.0 - UV.x;
-		if (kind < 1.5) {
-			tile = vec4(0.0, 2.0, 4.0, 2.0);
-		} else if (kind < 2.5) {
-			tile = vec4(4.0, 0.0, 2.0, 2.0);
-		} else {
-			tile = vec4(kind + 1.0, 2.0, 1.0, 2.0);
-		}
+	if (kind > 4.5) {
+		tile = vec4(6.0, 2.0, 1.0, 2.0);
+	} else if (kind > 3.5) {
+		tile = vec4(6.0, 0.0, 2.0, 2.0);
+	} else if (kind > 2.5) {
+		tile = vec4(4.0, 2.0, 1.0, 2.0);
+	} else if (kind > 1.5) {
+		tile = vec4(4.0, 0.0, 2.0, 2.0);
+	} else if (kind > .5) {
+		tile = vec4(0.0, 2.0, 4.0, 2.0);
 	}
-	UV = (tile.xy + UV * tile.zw) / vec2(6.0, 4.0);
+	UV = (tile.xy + UV * tile.zw) / vec2(8.0, 4.0);
+
+	// Instance transforms describe view-relative rectangles. Project them at
+	// background depths so ordinary depth testing keeps the playable track in front.
+	vec3 center = MODEL_MATRIX[3].xyz;
+	vec2 extent = vec2(MODEL_MATRIX[0].x, MODEL_MATRIX[1].y);
+	float narrow = 1.0 - smoothstep(.65, 1.55, VIEWPORT_SIZE.x / VIEWPORT_SIZE.y);
+	if (kind < .5) {
+		extent *= vec2(1.0 + narrow * .56, 1.0 - narrow * .12);
+	} else if (kind > 1.5) {
+		extent *= vec2(1.0 + narrow * .13, 1.0 - narrow * .26);
+		center.x += sign(center.x) * narrow * .09;
+	}
+	vec2 screen = center.xy + VERTEX.xy * extent;
+	vec2 view = screen * center.z / abs(vec2(PROJECTION_MATRIX[0][0], PROJECTION_MATRIX[1][1]));
+	POSITION = PROJECTION_MATRIX * vec4(view, -center.z, 1.0);
 }
 
 void fragment() {

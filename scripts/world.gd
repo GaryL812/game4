@@ -8,7 +8,6 @@ var chunks: Array[Node3D] = []
 var loose: Array[Dictionary] = []
 var coins_multi: MultiMeshInstance3D
 var sparks_multi: MultiMeshInstance3D
-var scenery: InkScenery
 var coin_basis: Transform3D
 var particles: Array[Dictionary] = []
 var materials: Dictionary = {}
@@ -57,17 +56,11 @@ func build(owner_game) -> void:
 			var surface: ShaderMaterial=material_for(key).duplicate()
 			surface.set_shader_parameter("stretch_platform",true)
 			surface.set_shader_parameter("platform_span",span)
+			surface.set_shader_parameter("platform_stone",preload("res://assets/textures/ink_stone.webp"))
 			materials[cache_key]=surface
 		for mesh_node in deck.find_children("*","MeshInstance3D",true,false):
 			mesh_node.material_override=materials[cache_key]
 			mesh_node.custom_aabb=AABB(Vector3(-8.5,0,-13),Vector3(17,span+2,26))
-		if int(roof.branch)==0:
-			if index%4==0:
-				var pavilion := model("pavilion",Vector3(14.0,float(roof.height)-1.7,4),chunk)
-				pavilion.scale=Vector3.ONE*1.5
-			if index%4==2:
-				var tower := model("pagoda",Vector3(18,float(roof.height)-5,7),chunk)
-				tower.scale=Vector3.ONE*1.5
 	for i in game.track.obstacles.size():
 		var obstacle: Dictionary=game.track.obstacles[i]
 		var key: String=["basket","screen","bell"][i%3]
@@ -86,9 +79,9 @@ func build(owner_game) -> void:
 	var last: Dictionary=game.track.sections[-1][0]
 	var finish := model("finish_scroll",Vector3(last.x,last.height,TrackData.FINISH))
 	loose.append({"node":finish,"z":TrackData.FINISH})
-	scenery = InkScenery.new()
+	var scenery := InkScenery.new()
 	add_child(scenery)
-	scenery.build(game.track)
+	scenery.build()
 	var ink := ShaderMaterial.new()
 	ink.shader=preload("res://scripts/ink_particles.gdshader")
 	ink.set_shader_parameter("paper_grain",grain)
@@ -118,7 +111,6 @@ func update_view(z: float,dt: float) -> void:
 	phase+=dt
 	for chunk in chunks: chunk.visible=chunk.position.z>z-27 and chunk.position.z<z+74
 	for entry in loose: entry.node.visible=float(entry.z)>z-15 and float(entry.z)<z+65
-	scenery.update_view(z, phase, Platform.low_end)
 	var visible_coins := 0
 	for i in game.track.coins.size():
 		var coin: Dictionary=game.track.coins[i]

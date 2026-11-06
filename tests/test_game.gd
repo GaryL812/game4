@@ -122,6 +122,37 @@ func run() -> void:
 	var boost_count: int = game.player.boost_count
 	game.player.tick(1.0 / 60, 0)
 	check(game.player.boost_count == boost_count, "a boost pad grants once per runner")
+	for transfer in [[2, 0], [2, 2], [3, 0]]:
+		game.reset_runners()
+		var player: RoofRunner = game.player
+		var source: Dictionary = game.track.sections[transfer[0]][1]
+		var destination: Dictionary = game.track.sections[transfer[0]][transfer[1]]
+		player.position = Vector3(source.x, source.height, float(source.start) + 3.0)
+		player.target_x = player.position.x
+		down.position = game.get_viewport().get_visible_rect().size * Vector2(.15, .75)
+		game._unhandled_input(down)
+		up.position = down.position
+		if transfer[1] == 2:
+			var drag := InputEventScreenDrag.new()
+			drag.index = 0
+			drag.position = down.position + Vector2(game.get_viewport().get_visible_rect().size.x * .15, 0)
+			game._unhandled_input(drag)
+			up.position = drag.position
+		game._unhandled_input(up)
+		player.tick(1.0 / 60, 0)
+		check(not player.grounded and player.vertical_speed > 0, "lateral input launches a hop on branch %s" % [transfer])
+		for step in 90:
+			player.tick(1.0 / 60, 0)
+			if player.grounded or player.traversal != "run": break
+		check(player.grounded and player.safe_roof_id == int(destination.id) and player.falls == 0,
+			"lateral hop lands on the adjacent roof on branch %s" % [transfer])
+	game.reset_runners()
+	var outer: Dictionary = game.track.sections[2][0]
+	game.player.position = Vector3(float(outer.x) - float(outer.width) * .5 + .1, outer.height, float(outer.start) + 3.0)
+	game.player.target_x = -10
+	for step in 3:
+		game.player.tick(1.0 / 60, 0)
+	check(not game.player.grounded and game.player.vertical_speed < 0, "steering off an outer edge without a neighbouring roof still falls")
 	game.race_rng.seed=55213
 	game.start_race()
 	game.state = "race"

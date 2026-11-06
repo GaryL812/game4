@@ -9,6 +9,7 @@ const FINISH := (COUNT - 1) * STRIDE + 12.0
 const BASE_SPEED := 11.0
 const LANES := [-6.0, 0.0, 6.0]
 const BUILDING_BASE := -16.0
+const SIDE_JUMP_MAX_GAP := 2.2
 var roofs: Array[Dictionary] = []
 var sections: Array[Array] = []
 var obstacles: Array[Dictionary] = []
@@ -57,6 +58,22 @@ func platform_at(x: float, z: float) -> bool:
 
 func edge_ahead(x: float, z: float, distance: float) -> bool:
 	return platform_at(x, z) and not platform_at(x, z + distance)
+
+func side_jump_destination(roof: Dictionary, target_x: float) -> Dictionary:
+	var center := float(roof.x)
+	var half_width := float(roof.width) * .5
+	var steer := target_x - center
+	if absf(steer) <= half_width:
+		return {}
+	var direction := signf(steer)
+	var nearest: Dictionary = {}
+	var nearest_gap := INF
+	for neighbour in sections[int(roof.index)]:
+		var gap := (float(neighbour.x) - center) * direction - half_width - float(neighbour.width) * .5
+		if gap > 0.0 and gap <= SIDE_JUMP_MAX_GAP and gap < nearest_gap:
+			nearest = neighbour
+			nearest_gap = gap
+	return nearest
 
 func lanes_ahead(z: float) -> Array[float]:
 	var result: Array[float] = []

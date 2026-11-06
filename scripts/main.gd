@@ -52,13 +52,13 @@ func _ready() -> void:
 	add_child(audio)
 	var keys := ["runner_0", "runner_1", "runner_2", "accessory_cap", "accessory_backpack", "accessory_mohawk", "accessory_crown", "accessory_headphones", "roof_wide", "roof_narrow", "roof_short", "roof_raised", "roof_corner", "roof_slope", "boost", "crate", "wall", "rail", "coin", "finish", "checkpoint", "water_tower", "aircon", "chimney", "crane", "city_block", "shadow", "spark"]
 	keys.append("runner_wanderer")
-	keys.append_array(["deck_stone","deck_wood","deck_eaves","deck_bridge","basket","screen","bell","ink_pad","cloud_pad","finish_scroll","pavilion","pagoda","ink_drop"])
+	keys.append_array(["deck_stone","deck_wood","deck_eaves","deck_bridge","basket","screen","bell","ink_pad","cloud_pad","finish_scroll","ink_drop"])
 	for key in keys:
 		var category := "interactive"
 		if key.begins_with("runner_"): category = "characters"
 		elif key.begins_with("accessory_"): category = "accessories"
 		elif key.begins_with("roof_") or key.begins_with("deck_"): category = "track"
-		elif key in ["water_tower", "aircon", "chimney", "crane", "pavilion", "pagoda"]: category = "props"
+		elif key in ["water_tower", "aircon", "chimney", "crane"]: category = "props"
 		elif key == "city_block": category = "background"
 		elif key in ["shadow", "spark", "ink_drop"]: category = "effects"
 		models[key] = load("res://assets/models/%s/%s.glb" % [category, key])

@@ -1,12 +1,17 @@
 class_name RoofRunner
 extends Node3D
 
+const GRAVITY := 23.0
+const SIDE_JUMP_INSET := .55
+const SIDE_WALL_CLEARANCE := .42
+
 var runner_id := 0
 var is_player := false
 var speed := 11.0
 var target_x := 0.0
 var vertical_speed := 0.0
 var grounded := true
+var side_jump_roof: Dictionary = {}
 var boost_left := 0.0
 var stun_left := 0.0
 var invulnerable := 0.0
@@ -146,20 +151,24 @@ func tick(dt: float, elapsed: float) -> void:
 		else:
 			position.y = float(floor_roof.height)
 			remember_safe(floor_roof)
-			if track.edge_ahead(position.x, position.z, maxf(1.1, actual_speed*.14)):
-				vertical_speed = 9.1
+			var launch_speed := 9.1 if track.edge_ahead(position.x, position.z, maxf(1.1, actual_speed*.14)) else 0.0
+			if is_player:
+				launch_speed = maxf(launch_speed, prepare_side_jump(floor_roof))
+			if launch_speed > 0.0:
+				vertical_speed = launch_speed
 				grounded = false
 				if is_player: game.emit_fx(position,"jump")
-	position.x = lerpf(position.x,target_x,1.0-exp(-dt*8))
+	position.x = next_steering_x(dt)
 	position.z += actual_speed*dt
 	if not grounded:
-		vertical_speed -= 23*dt
+		vertical_speed -= GRAVITY*dt
 		position.y += vertical_speed*dt
 		var landing := track.surface_at(position.x,position.z)
 		if not landing.is_empty() and vertical_speed <= 0 and previous.y >= float(landing.height)-.08 and position.y <= float(landing.height):
 			position.y = float(landing.height)
 			vertical_speed = 0
 			grounded = true
+			side_jump_roof = {}
 			land_left = .32
 			remember_safe(landing)
 			if is_player: game.emit_fx(position,"land")
@@ -196,6 +205,34 @@ func tick(dt: float, elapsed: float) -> void:
 		finish_time=elapsed
 		play("Celebrate")
 
+func prepare_side_jump(roof: Dictionary) -> float:
+	var destination := track.side_jump_destination(roof, target_x)
+	if destination.is_empty():
+		return 0.0
+	side_jump_roof = destination
+	var direction := signf(float(destination.x) - float(roof.x))
+	var near_edge := float(destination.x) - direction * float(destination.width) * .5
+	if (target_x - near_edge) * direction < 0.0:
+		target_x = near_edge + direction * SIDE_JUMP_INSET
+	var rise := float(destination.height) - float(roof.height)
+	return sqrt(2.0 * GRAVITY * maxf(1.12, rise + .75))
+
+func next_steering_x(dt: float) -> float:
+	var blend := 1.0 - exp(-dt * 8.0)
+	if side_jump_roof.is_empty():
+		return lerpf(position.x, target_x, blend)
+	var center := float(side_jump_roof.x)
+	var half_width := float(side_jump_roof.width) * .5
+	var inset := minf(SIDE_JUMP_INSET, half_width)
+	var aim := clampf(target_x, center - half_width + inset, center + half_width - inset)
+	var proposed := lerpf(position.x, aim, blend)
+	var next_y := position.y + (vertical_speed - GRAVITY * dt) * dt
+	if absf(position.x - center) > half_width and next_y < float(side_jump_roof.height) - .08:
+		# Keep the runner just outside the wall until the feet clear its lip.
+		var limit := center - signf(center - position.x) * (half_width + SIDE_WALL_CLEARANCE)
+		proposed = minf(proposed, limit) if position.x < center else maxf(proposed, limit)
+	return proposed
+
 func remember_safe(roof: Dictionary) -> void:
 	safe_roof_id = int(roof.id)
 	var half := float(roof.width)*.5-.9
@@ -203,6 +240,7 @@ func remember_safe(roof: Dictionary) -> void:
 
 func enter_wall(contact: Dictionary) -> void:
 	wall=contact.roof
+	side_jump_roof = {}
 	grounded=false
 	vertical_speed=0
 	flip_time=0
@@ -287,6 +325,7 @@ func respawn() -> void:
 	target_x=position.x
 	vertical_speed=0
 	grounded=true
+	side_jump_roof = {}
 	stun_left=0
 	invulnerable=1.25
 	boost_left=0

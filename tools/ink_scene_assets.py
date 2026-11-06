@@ -27,18 +27,12 @@ def generate_ink_assets(api):
         box('surface',(0,0,8.10),(14,24,.20),paper if name!='deck_wood' else '#b3a07c')
         if name=='deck_stone':
             for x in [-7,7]:box('stone_lip',(x,0,8.16),(.12,24,.08),ink)
-        elif name=='deck_wood':
-            for x in [-7,7]:
-                box('handrail',(x,0,8.8),(.10,24,.10),timber)
-                for y in [-10,0,10]:box('rail_post',(x,y,8.5),(.12,.12,.75),timber)
         elif name=='deck_eaves':
             for sign in [-1,1]:
                 mesh('swept_eave',[(sign*6.8,-12,7.8),(sign*6.8,12,7.8),(sign*7.9,12,7.3),(sign*8.25,12,7.65),(sign*8.25,-12,7.65),(sign*7.9,-12,7.3)],[(0,1,2,5),(5,2,3,4)],ink)
             for y in [-12,12]:box('ridge_edge',(0,y,8.13),(14,.12,.08),ink)
-        else:
+        elif name=='deck_bridge':
             for x in [-7,7]:
-                box('bridge_rail',(x,0,8.9),(.14,24,.14),stone)
-                for y in [-10,0,10]:box('bridge_post',(x,y,8.57),(.22,.22,1),ink)
                 # Dark arch inset under the bridge, low-poly painted stonework.
                 verts=[(x*1.002,-7,0),(x*1.002,-7,4),(x*1.002,-4,6),(x*1.002,4,6),(x*1.002,7,4),(x*1.002,7,0)]
                 mesh('arch_wash',verts,[(0,1,2,3,4,5)],'#808e80')

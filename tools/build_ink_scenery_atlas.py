@@ -5,7 +5,7 @@ from PIL import Image
 
 
 ROOT = Path(__file__).resolve().parent.parent
-SIZE = (1536, 1024)
+SIZE = (2048, 1024)
 
 
 def smooth(start, end, value):
@@ -40,6 +40,8 @@ def prepare(source, kind, size):
             water *= 1 - smooth(.73, .96, y)
             alpha = max(alpha, water * .80)
         fade = smooth(0, .038, min(x, 1 - x)) * smooth(0, .06, min(y, 1 - y))
+        if kind == "falls":
+            fade *= smooth(.025, .14, x)
         # Solve for the ink color on its own so an opaque paper fringe is not
         # reintroduced when the atlas is sampled on the in-game background.
         ink = [round(max(0, min(255, (c - cutoff * 255 * (1 - alpha)) / max(.001, alpha)))) for c in (r, g, b)]
@@ -55,7 +57,8 @@ def main():
         ("云雾2D图.png", "mist", (0, 512), (1024, 512), None),
         ("瀑布2D图.png", "falls", (1024, 0), (512, 512), None),
         ("竹子2D图.png", "bamboo", (1024, 512), (256, 512), (0, .46)),
-        ("竹子2D图.png", "bamboo", (1280, 512), (256, 512), (.54, 1)),
+        ("楼阁2D图.png", "pavilion", (1536, 0), (512, 512), None),
+        ("小竹叶2D图.png", "leaves", (1536, 512), (256, 512), (0, .48)),
     ]
     for name, kind, (x, y), size, crop in regions:
         with Image.open(ROOT / "jiarui" / name) as image:

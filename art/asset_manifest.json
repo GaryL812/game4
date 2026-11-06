@@ -182,8 +182,8 @@
   {
     "name": "deck_wood",
     "category": "track",
-    "triangles": 120,
-    "bytes": 12536
+    "triangles": 24,
+    "bytes": 3480
   },
   {
     "name": "deck_eaves",
@@ -194,8 +194,8 @@
   {
     "name": "deck_bridge",
     "category": "track",
-    "triangles": 128,
-    "bytes": 13124
+    "triangles": 32,
+    "bytes": 4088
   },
   {
     "name": "basket",
