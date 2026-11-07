@@ -1,5 +1,5 @@
 """Run with Blender --background --python tools/create_assets.py.
-All shipped 3D geometry originates here. Coordinates are converted by glTF.
+Generate the procedural assets and export the authored hero. Coordinates are converted by glTF.
 """
 import bpy, math, json, os, sys
 from mathutils import Vector
@@ -7,6 +7,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT,'tools'))
 from wanderer_mesh import build_wanderer, render_preview
 from ink_scene_assets import generate_ink_assets
+from build_ink_stick_runner import export_runner
 OUT = os.path.join(ROOT, 'assets', 'models')
 os.makedirs(OUT, exist_ok=True)
 os.makedirs(os.path.join(ROOT, 'art'), exist_ok=True)
@@ -225,6 +226,7 @@ clear()
 bpy.ops.mesh.primitive_circle_add(vertices=12,radius=.46,fill_type='NGON');finish_obj(bpy.context.object,'dark');export('shadow','effects')
 clear();box('spark',(0,0,.035),(.07,.07,.07),'gold');export('spark','effects')
 generate_ink_assets(globals())
+manifest.insert(4,export_runner(ROOT))
 with open(os.path.join(ROOT,'art','asset_manifest.json'),'w',encoding='utf8') as f:json.dump(manifest,f,ensure_ascii=False,indent=2)
 print('ASSET_BUILD_OK',len(manifest),'models',sum(x['triangles'] for x in manifest),'unique triangles')
 

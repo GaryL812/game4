@@ -24,6 +24,12 @@
     "bytes": 108180
   },
   {
+    "name": "runner_ink_stick",
+    "category": "characters",
+    "triangles": 500,
+    "bytes": 239156
+  },
+  {
     "name": "accessory_cap",
     "category": "accessories",
     "triangles": 44,

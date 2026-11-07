@@ -20,7 +20,9 @@ Blender 原创资产 + Godot 4.7.2 的 3D 水墨跑酷竞速游戏，首关已�
 
 - 手机：左右拖动，或点按左右半屏。
 - 电脑：鼠标拖动/点按，A/D 或左右方向键。
+- 每收集 15 枚金币自动进入 5 秒、1.3 倍速度的疾跑，画面两侧出现风线，镜头视野拉开，脚下留下墨痕。接近前方同路线、同高度的障碍或 NPC 时自动挥刀，平时保持跑姿。NPC 被斩中后消失 2 秒，再从最近的安全位置恢复比赛。持续期间拾取金币照常获得收益，结束后重新收集 15 枚充能。命中沿用墨爆、短暂震屏和疾行效果，疾行最迟随充能结束。平台高度和三路之间的高度差为最初版本的约四成。
 - 跳跃自动完成；墨痕踏板触发加速和翻滚。
+- 脚底使用 `assets/ink_fx/trail.png`：普通跑步留下淡墨飞白，斩击和加速时平滑加宽加浓；起跳留下短暂地面笔迹，腾空跟随细淡墨丝，落地接回地面墨痕。两个笔迹实例共用一次绘制，并裁切到屋顶边界。
 - Esc 暂停；掉落后自动回到刚离开的屋顶稍往前的位置继续跑，无弹窗、无广告、无检查点。
 
 ## 交付目录
@@ -58,6 +60,10 @@ Blender 原创资产 + Godot 4.7.2 的 3D 水墨跑酷竞速游戏，首关已�
 & 'E:\godot\Godot_v4.7.2-stable_win64.exe\Godot_v4.7.2-stable_win64_console.exe' --headless --editor --path . --import
 # 核心玩法回归
 & 'E:\godot\Godot_v4.7.2-stable_win64.exe\Godot_v4.7.2-stable_win64_console.exe' --headless --path . tests/test_game.tscn
+# 斩击玩法回归；去掉 --headless 并追加 -- --visual 可截图并检查三个特效的 Draw Call 增量
+& 'E:\godot\Godot_v4.7.2-stable_win64.exe\Godot_v4.7.2-stable_win64_console.exe' --headless --path . tests/test_sword.tscn
+# 跑步／加速／跳跃／落地墨痕回归；追加 -- --visual 可生成四种状态的预览图
+& 'E:\godot\Godot_v4.7.2-stable_win64.exe\Godot_v4.7.2-stable_win64_console.exe' --headless --path . tests/test_trail.tscn
 # 微信桥接单元检查
 node tests/test_wechat.cjs
 node tests/test_package.cjs

@@ -6,10 +6,12 @@ const GAP := 4.5
 const STRIDE := SEGMENT_LENGTH + GAP
 const COUNT := 34
 const FINISH := (COUNT - 1) * STRIDE + 12.0
+const FINISH_RUNWAY := 48.0
 const BASE_SPEED := 11.0
 const LANES := [-6.0, 0.0, 6.0]
 const BUILDING_BASE := -16.0
 const SIDE_JUMP_MAX_GAP := 2.2
+const MAX_CLIMB_DEPTH := 3.0
 var roofs: Array[Dictionary] = []
 var sections: Array[Array] = []
 var obstacles: Array[Dictionary] = []
@@ -19,15 +21,17 @@ var coins: Array[Dictionary] = []
 func _init() -> void:
 	for i in COUNT:
 		var start := i * STRIDE - 8.0
-		var heights := [0.0, 2.4, 5.0, 1.0, 4.2, 6.4, 2.0, -.8, 3.6, 1.2]
+		var heights := [0.0, .96, 2.0, .4, 1.68, 2.56, .8, -.32, 1.44, .48]
 		var height: float = heights[i % heights.size()]
 		var split := i % 6 in [2, 3, 4] and i < COUNT - 2
 		var section: Array = []
 		for branch in (3 if split else 1):
 			var x := float(branch-1)*6.0 if split else sin(i * .7) * 1.0
 			var width := 4.6 if split else 17.6
-			var y := height + (float([0.0,1.6,3.0][(branch+i)%3]) if split else 0.0)
+			var y := height + (float([0.0,.64,1.2][(branch+i)%3]) if split else 0.0)
 			var roof := {"id": roofs.size(), "start": start, "end": start + SEGMENT_LENGTH, "x": x, "width": width, "height": y, "index": i, "branch": branch}
+			if i == COUNT-1:
+				roof.end = FINISH+FINISH_RUNWAY
 			roofs.append(roof)
 			section.append(roof)
 			if i > 0 and i < COUNT - 1:
@@ -91,13 +95,13 @@ func wall_contact(from: Vector3, to: Vector3) -> Dictionary:
 	for index in range(maxi(0, section_index(from.z)-1), mini(COUNT, section_index(to.z)+2)):
 		for roof in sections[index]:
 			var top := float(roof.height)
-			if to.y >= top-.12 or to.y+1.8 < BUILDING_BASE: continue
+			if to.y >= top-.02 or to.y+1.8 < BUILDING_BASE: continue
 			var left := float(roof.x)-float(roof.width)*.5
 			var right := float(roof.x)+float(roof.width)*.5
 			var front := float(roof.start)-.34
-			if from.z <= front and to.z >= front and to.x > left-.15 and to.x < right+.15:
+			if from.z <= front and to.z >= front and to.x > left-.15 and to.x < right+.15 and to.y+.0001 >= top-MAX_CLIMB_DEPTH:
 				return {"roof": roof, "face": "front", "side": 0}
-			if to.z > float(roof.start) and to.z < float(roof.end):
+			if to.y < top-.12 and to.z > float(roof.start) and to.z < float(roof.end):
 				if (from.x <= left and to.x >= left-.38) or (absf(to.x-left)<.38 and from.y >= to.y):
 					return {"roof": roof, "face": "side", "side": -1}
 				if (from.x >= right and to.x <= right+.38) or (absf(to.x-right)<.38 and from.y >= to.y):

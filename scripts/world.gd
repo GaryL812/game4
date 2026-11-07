@@ -2,6 +2,8 @@ class_name RooftopWorld
 extends Node3D
 
 const InkScenery = preload("res://scripts/ink_scenery.gd")
+const SwordFX = preload("res://scripts/sword_fx.gd")
+const FINISH_GATE_TEXTURE = preload("res://assets/ink_bg/finish_gate.png")
 
 var game
 var chunks: Array[Node3D] = []
@@ -12,8 +14,23 @@ var coin_basis: Transform3D
 var particles: Array[Dictionary] = []
 var materials: Dictionary = {}
 var phase := 0.0
-var trail_clock := 0.0
 var grain: Texture2D = preload("res://assets/textures/paper_grain.png")
+var obstacle_nodes: Array[Node3D] = []
+var destroyed_obstacles: Dictionary = {}
+var sword_fx: Node3D
+var finish_gate: Sprite3D
+
+func destroy_obstacle(index: int) -> void:
+	if destroyed_obstacles.has(index): return
+	destroyed_obstacles[index] = true
+	obstacle_nodes[index].visible = false
+	sword_fx.splash(obstacle_nodes[index].position)
+
+func reset_combat() -> void:
+	destroyed_obstacles.clear()
+	sword_fx.clear()
+	for entry in loose:
+		entry.node.visible = float(entry.z) > game.player.position.z - 15 and float(entry.z) < game.player.position.z + 65
 
 func material_for(key: String) -> ShaderMaterial:
 	if materials.has(key): return materials[key]
@@ -50,6 +67,7 @@ func build(owner_game) -> void:
 		var key: String=decks[(index+int(roof.branch))%4]
 		var deck := model(key,Vector3(roof.x,TrackData.BUILDING_BASE,0),chunk)
 		deck.scale=Vector3(float(roof.width)/14.0,1,1)
+		deck.scale.z = (float(roof.end)-float(roof.start))/TrackData.SEGMENT_LENGTH
 		var span := float(roof.height)-TrackData.BUILDING_BASE
 		var cache_key := key+str(span)
 		if not materials.has(cache_key):
@@ -66,7 +84,8 @@ func build(owner_game) -> void:
 		var key: String=["basket","screen","bell"][i%3]
 		var node := model(key,Vector3(obstacle.x,obstacle.y,obstacle.z))
 		if float(obstacle.width)>1: node.scale.x=1.6
-		loose.append({"node":node,"z":float(obstacle.z)})
+		obstacle_nodes.append(node)
+		loose.append({"node":node,"z":float(obstacle.z),"obstacle":i})
 	for i in game.track.boosts.size():
 		var pad: Dictionary=game.track.boosts[i]
 		var node := model("ink_pad" if i%2==0 else "cloud_pad",Vector3(pad.x,pad.y,pad.z))
@@ -77,8 +96,20 @@ func build(owner_game) -> void:
 	coin_basis=coin_source.find_children("*","MeshInstance3D",true,false)[0].global_transform
 	coin_source.free()
 	var last: Dictionary=game.track.sections[-1][0]
-	var finish := model("finish_scroll",Vector3(last.x,last.height,TrackData.FINISH))
-	loose.append({"node":finish,"z":TrackData.FINISH})
+	finish_gate = Sprite3D.new()
+	finish_gate.name = "InkFinishGate"
+	finish_gate.texture = FINISH_GATE_TEXTURE
+	finish_gate.pixel_size = 36.0/FINISH_GATE_TEXTURE.get_width()
+	finish_gate.offset = Vector2(0,FINISH_GATE_TEXTURE.get_height()*.235)
+	finish_gate.position = Vector3(last.x,last.height,TrackData.FINISH)
+	finish_gate.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	finish_gate.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	var gate_ink := ShaderMaterial.new()
+	gate_ink.shader = preload("res://scripts/finish_gate.gdshader")
+	gate_ink.set_shader_parameter("gate_texture",FINISH_GATE_TEXTURE)
+	gate_ink.render_priority = -1
+	finish_gate.material_override = gate_ink
+	add_child(finish_gate)
 	var scenery := InkScenery.new()
 	add_child(scenery)
 	scenery.build()
@@ -88,6 +119,8 @@ func build(owner_game) -> void:
 	sparks_multi=create_multimesh("ink_drop",20,ink)
 	for i in 20:
 		particles.append({"position":Vector3.ZERO,"life":0.0,"duration":.5,"velocity":Vector3.ZERO,"kind":0.0,"size":.4,"seed":float(i)*.13})
+	sword_fx = SwordFX.new()
+	add_child(sword_fx)
 
 func create_multimesh(key: String,count: int,material: Material) -> MultiMeshInstance3D:
 	var source: Node3D=game.models[key].instantiate()
@@ -109,8 +142,13 @@ func create_multimesh(key: String,count: int,material: Material) -> MultiMeshIns
 
 func update_view(z: float,dt: float) -> void:
 	phase+=dt
-	for chunk in chunks: chunk.visible=chunk.position.z>z-27 and chunk.position.z<z+74
-	for entry in loose: entry.node.visible=float(entry.z)>z-15 and float(entry.z)<z+65
+	for i in chunks.size():
+		var roof: Dictionary = game.track.roofs[i]
+		chunks[i].visible = float(roof.end)>z-27 and float(roof.start)<z+74
+	finish_gate.visible = z>TrackData.FINISH-180 and z<TrackData.FINISH+25
+	for entry in loose:
+		entry.node.visible = not destroyed_obstacles.has(entry.get("obstacle", -1)) and float(entry.z)>z-15 and float(entry.z)<z+65
+	if game.state == "race": sword_fx.tick(dt, game.player)
 	var visible_coins := 0
 	for i in game.track.coins.size():
 		var coin: Dictionary=game.track.coins[i]
@@ -119,10 +157,6 @@ func update_view(z: float,dt: float) -> void:
 		coins_multi.multimesh.set_instance_transform(visible_coins,transform*coin_basis)
 		visible_coins+=1
 	coins_multi.multimesh.visible_instance_count=visible_coins
-	trail_clock+=dt
-	if game.state=="race" and game.player.boost_left>0 and trail_clock>.09:
-		trail_clock=0
-		burst(game.player.position+Vector3(0,.4,-.5),1,"trail")
 	var visible_ink := 0
 	for p in particles:
 		if float(p.life)<=0: continue

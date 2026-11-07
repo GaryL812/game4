@@ -1,8 +1,11 @@
 extends Node
 
 const PATH := "user://skyline_save.json"
-const COLORS := ["#b74442", "#ff936b", "#7bb9ff", "#ee8ac1", "#c3a2f8", "#faf4e5", "#5cdbc3", "#ffd25c"]
-const NAMES := ["灰袍浪客", "落日橙", "海盐蓝", "莓果粉", "暮光紫", "云朵白", "薄荷绿", "冠军金"]
+const STREET_SKIN := 8
+const FELINE_SKIN := 9
+const RIVAL_SKINS := [0, STREET_SKIN, FELINE_SKIN]
+const COLORS := ["#292621", "#ff936b", "#7bb9ff", "#ee8ac1", "#c3a2f8", "#faf4e5", "#5cdbc3", "#ffd25c", "#697381", "#504956"]
+const NAMES := ["墨行", "落日橙", "海盐蓝", "莓果粉", "暮光紫", "云朵白", "薄荷绿", "冠军金", "街头滑手", "墨尾灵猫"]
 var data: Dictionary = {"version": 1, "coins": 0, "skin": 0, "owned": [0], "best": 0.0, "records": [], "day": "", "daily": {}}
 
 func _ready() -> void:
@@ -18,12 +21,12 @@ func load_json(raw: String) -> void:
 	# JSON numeric values are floats. Normalize integers explicitly on reload.
 	for key in ["version", "coins", "skin"]:
 		if parsed.get(key) is float or parsed.get(key) is int: data[key] = maxi(0, int(parsed[key]))
-	data.skin = clampi(int(data.skin), 0, 7)
+	data.skin = clampi(int(data.skin), 0, NAMES.size() - 1)
 	if parsed.get("best") is float or parsed.get("best") is int: data.best = maxf(0, float(parsed.best))
 	if parsed.get("owned") is Array:
 		data.owned = [0]
 		for value in parsed.owned:
-			if (value is float or value is int) and int(value) >= 1 and int(value) <= 7 and int(value) not in data.owned: data.owned.append(int(value))
+			if (value is float or value is int) and int(value) >= 1 and int(value) < NAMES.size() and int(value) not in data.owned: data.owned.append(int(value))
 	if int(data.skin) not in data.owned: data.skin = 0
 	if parsed.get("records") is Array: data.records = parsed.records.slice(0, 10)
 	if parsed.get("day") is String: data.day = parsed.day
@@ -44,10 +47,16 @@ func persist() -> void:
 	var file := FileAccess.open(PATH, FileAccess.WRITE)
 	if file: file.store_string(raw)
 
+func skin_cost(index: int) -> int:
+	match index:
+		STREET_SKIN: return 80
+		FELINE_SKIN: return 160
+	return index * 80
+
 func buy_skin(index: int) -> bool:
-	if index < 0 or index >= COLORS.size(): return false
+	if index < 0 or index >= NAMES.size(): return false
 	if index not in data.owned:
-		var cost := index * 80
+		var cost := skin_cost(index)
 		if data.coins < cost: return false
 		data.coins -= cost
 		data.owned.append(index)

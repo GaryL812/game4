@@ -5,6 +5,11 @@ const INK := Color("293d34")
 const MUTED := Color("7e826e")
 const LIME := Color("aa4939")
 const PAPER := Color("f2ead4")
+const PaperRunner = preload("res://scripts/paper_runner.gd")
+const SCROLL_TEXTURE = preload("res://assets/ui/progress_scroll_clean.png")
+const SCROLL_SHADER = preload("res://scripts/progress_scroll.gdshader")
+const ENERGY_TEXTURE = preload("res://assets/ui/energy_bar.png")
+const ENERGY_SHADER = preload("res://scripts/energy_bar.gdshader")
 var game
 var font: Font
 var bold: Font
@@ -13,6 +18,20 @@ var toast := ""
 var toast_left := 0.0
 var pulse := 0.0
 var styles: Dictionary = {}
+var wind_time := 0.0
+var wind_strength := 0.0
+var progress_scroll: Control
+var scroll_paper: TextureRect
+var scroll_left: TextureRect
+var scroll_right: TextureRect
+var scroll_marker: Polygon2D
+var scroll_roller_motion: Node2D
+var scroll_display_progress := 0.0
+var energy_bar: Control
+var energy_back: TextureRect
+var energy_fill: TextureRect
+var energy_material: ShaderMaterial
+var energy_display := 0.0
 
 func setup(owner_game) -> void:
 	game = owner_game
@@ -20,10 +39,155 @@ func setup(owner_game) -> void:
 	bold = load("res://assets/fonts/ink_bold.ttf")
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	setup_progress_scroll()
+	setup_energy_bar()
+
+func setup_energy_bar() -> void:
+	energy_bar = Control.new()
+	energy_bar.name = "EnergyBar"
+	energy_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	energy_bar.show_behind_parent = true
+	add_child(energy_bar)
+	energy_bar.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
+	energy_back = TextureRect.new()
+	energy_back.name = "EmptyInk"
+	energy_back.texture = ENERGY_TEXTURE
+	energy_back.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	energy_back.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var empty_ink := ShaderMaterial.new()
+	empty_ink.shader = ENERGY_SHADER
+	empty_ink.set_shader_parameter("opacity",.12)
+	energy_back.material = empty_ink
+	energy_bar.add_child(energy_back)
+	energy_fill = TextureRect.new()
+	energy_fill.name = "RisingInk"
+	energy_fill.texture = ENERGY_TEXTURE
+	energy_fill.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	energy_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	energy_material = ShaderMaterial.new()
+	energy_material.shader = ENERGY_SHADER
+	energy_fill.material = energy_material
+	energy_bar.add_child(energy_fill)
+	energy_bar.visible = false
+
+func reset_energy_bar() -> void:
+	energy_display = 0.0
+
+func update_energy_bar(dt: float) -> void:
+	energy_bar.visible = game.state in ["countdown","race","paused"]
+	if not energy_bar.visible: return
+	var active: bool = game.player.charge_left>0
+	var ratio: float = game.player.charge_left/RoofRunner.CHARGE_DURATION if active else float(game.player.charge_coins)/RoofRunner.CHARGE_COINS
+	if game.state!="paused":
+		energy_display = lerpf(energy_display,clampf(ratio,0,1),1.0-exp(-dt*12))
+		if absf(energy_display-ratio)<.00001: energy_display=ratio
+	var height := clampf(size.y*.43,180,300)
+	var bottom := size.y*.18
+	energy_bar.offset_left = -58
+	energy_bar.offset_right = -24
+	energy_bar.offset_top = -bottom-height
+	energy_bar.offset_bottom = -bottom
+	energy_back.size = Vector2(34,height)
+	energy_fill.size = energy_back.size
+	energy_fill.pivot_offset = Vector2(17,height)
+	energy_fill.scale.y = energy_display
+	energy_fill.visible = energy_display>.00001
+	energy_material.set_shader_parameter("density",1.55 if active else 1.0)
+	energy_material.set_shader_parameter("opacity",1.0 if active else .72)
+
+func scroll_piece(piece_name: String, region: Vector4, roller: bool) -> TextureRect:
+	var piece := TextureRect.new()
+	piece.name = piece_name
+	piece.texture = SCROLL_TEXTURE
+	piece.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	piece.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var ink := ShaderMaterial.new()
+	ink.shader = SCROLL_SHADER
+	ink.set_shader_parameter("source_region",region)
+	ink.set_shader_parameter("wooden_roller",roller)
+	piece.material = ink
+	progress_scroll.add_child(piece)
+	return piece
+
+func setup_progress_scroll() -> void:
+	progress_scroll = Control.new()
+	progress_scroll.name = "ProgressScroll"
+	progress_scroll.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	progress_scroll.show_behind_parent = true
+	add_child(progress_scroll)
+	progress_scroll.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	progress_scroll.offset_left = 140
+	progress_scroll.offset_right = -90
+	progress_scroll.offset_top = 12
+	progress_scroll.offset_bottom = 94
+	scroll_paper = scroll_piece("Paper",Vector4(.124,0,.769,1),false)
+	scroll_paper.set_anchors_preset(Control.PRESET_CENTER_RIGHT)
+	# Reuse and mirror the new dark wooden cylinder for the traveling roller.
+	scroll_left = scroll_piece("MovingRoller",Vector4(.970,0,-.084,1),true)
+	scroll_roller_motion = Node2D.new()
+	scroll_roller_motion.name = "RollerMotion"
+	progress_scroll.add_child(scroll_roller_motion)
+	scroll_left.reparent(scroll_roller_motion)
+	scroll_right = scroll_piece("FixedRoller",Vector4(.886,0,.084,1),true)
+	scroll_marker = Polygon2D.new()
+	scroll_marker.name = "InkMarker"
+	scroll_marker.polygon = PackedVector2Array([
+		Vector2(-3,-1),Vector2(-2,-3),Vector2(1,-3.5),Vector2(3,-1),
+		Vector2(3.5,1),Vector2(1.5,3),Vector2(-1,3.5),Vector2(-3,1)])
+	scroll_marker.color = INK
+	progress_scroll.add_child(scroll_marker)
+	progress_scroll.visible = false
+
+func reset_progress_scroll() -> void:
+	scroll_display_progress = 0.0
+
+func update_progress_scroll(dt: float = 0.0) -> void:
+	progress_scroll.visible = game.state in ["countdown","race","paused"]
+	if not progress_scroll.visible: return
+	var progress := clampf(game.player.position.z/TrackData.FINISH,0,1)
+	if game.state == "countdown":
+		scroll_display_progress = 0.0
+	elif game.state != "paused":
+		# Render-frame smoothing follows physics updates and also eases rewinds.
+		scroll_display_progress = lerpf(scroll_display_progress,progress,1.0-exp(-dt*12.0))
+		if absf(scroll_display_progress-progress)<.00001:
+			scroll_display_progress=progress
+	var remaining := 1.0-scroll_display_progress
+	var height := progress_scroll.size.y
+	var roller_width := clampf(progress_scroll.size.x*.065,27,34)
+	var paper_width := maxf(1,progress_scroll.size.x-roller_width)
+	var paper_right := progress_scroll.size.x-roller_width*.48
+	scroll_paper.size = Vector2(paper_width,height)
+	scroll_paper.position = Vector2(paper_right-paper_width,0)
+	scroll_paper.pivot_offset = Vector2(paper_width,height*.5)
+	scroll_paper.scale.x = remaining
+	scroll_paper.visible = remaining>.00001
+	scroll_right.size = Vector2(roller_width,height)
+	scroll_right.position = Vector2(progress_scroll.size.x-roller_width,0)
+	scroll_right.pivot_offset = Vector2(roller_width*.5,height*.5)
+	scroll_right.rotation = -.12
+	scroll_left.size = Vector2(roller_width,height)
+	scroll_left.pivot_offset = Vector2(roller_width*.5,height*.5)
+	scroll_left.rotation = .10
+	# Node2D keeps the traveling roller at subpixel positions, independent of UI layout rounding.
+	scroll_roller_motion.position = Vector2(paper_right-paper_width*remaining-roller_width*.52,0)
+	scroll_left.position = Vector2.ZERO
+	scroll_left.visible = remaining>.00001
+	scroll_left.modulate.a = clampf(remaining/.025,0,1)
+	scroll_marker.position = Vector2(paper_right-paper_width*remaining+minf(12,paper_width*remaining*.5),height*.51)
+	scroll_marker.visible = remaining>.00001
+	scroll_marker.modulate.a = clampf(remaining/.025,0,1)
 
 func _process(dt: float) -> void:
 	pulse += dt
 	toast_left = maxf(0, toast_left - dt)
+	if game != null and is_instance_valid(game.player):
+		update_progress_scroll(dt)
+		update_energy_bar(dt)
+	if game != null and game.state != "paused":
+		var sprinting: bool = game.state=="race" and (game.player.charge_left>0 or game.player.boost_left>0 or game.player.slash_boost_left>0)
+		wind_strength=move_toward(wind_strength,1.0 if sprinting else 0.0,dt*5)
+		if sprinting: wind_time+=dt
 	queue_redraw()
 
 func say(message: String) -> void:
@@ -85,7 +249,7 @@ func _draw() -> void:
 		center("屋顶在等你，继续向前", x, h * .5 - 43, 16, MUTED)
 		button(Rect2(x - 150, h * .5 - 12, 300, 56), "继续奔跑  →", "resume", true)
 		button(Rect2(x - 150, h * .5 + 62, 300, 48), "返回主页", "home")
-	if toast_left > 0:
+	if toast_left > 0 and game.state not in ["countdown", "race", "paused"]:
 		var tw := minf(w - 32, 470)
 		card(Rect2((w - tw) * .5, h - 104, tw, 48), INK, 16)
 		center(toast, w * .5, h - 73, 16, PAPER)
@@ -129,21 +293,24 @@ func draw_home(w: float, h: float, wide: bool) -> void:
 		button(Rect2(w - 180, 144, 150, 44), "每日挑战", "daily")
 		button(Rect2(w - 180, 204, 150, 44), "排行榜", "board")
 
+func draw_speed_wind(w: float, h: float) -> void:
+	var vanishing_point := Vector2(w*.5,h*.32)
+	for side in [-1.0,1.0]:
+		for i in 7:
+			var phase := fposmod(wind_time*1.8+float(i)*.173,1.0)
+			var end := Vector2(w*(.5+side*(.32+phase*.28)),h*(.17+float(i)*.12))
+			var start := end.lerp(vanishing_point,.10+.06*phase)
+			var opacity := sin(phase*PI)*wind_strength*.4
+			draw_line(start,end,Color(.80,.80,.72,opacity*.4),4.0)
+			draw_line(start,end,Color(.30,.32,.28,opacity),1.5)
+
 func draw_race(w: float, h: float) -> void:
+	if wind_strength>0: draw_speed_wind(w,h)
 	var player = game.player
-	if not game.camera.is_position_behind(player.position):
-		var marker: Vector2 = game.camera.unproject_position(player.position + Vector3(0, 2.2, 0))
-		card(Rect2(marker.x - 22, marker.y - 26, 44, 23), LIME, 8)
-		center("你", marker.x, marker.y - 10, 12, PAPER)
 	card(Rect2(22, 26, 104, 92), INK, 20)
 	txt("名次", Vector2(40, 51), 12, PAPER)
 	txt("%02d" % game.player_rank(), Vector2(38, 97), 39, PAPER)
 	txt("/ 7", Vector2(91, 95), 13, Color("b9b5a0"))
-	card(Rect2(140, 28, w - 230, 58), PAPER, 18)
-	txt("云栈烟岚", Vector2(155, 51), 13)
-	var progress := clampf(player.position.z / TrackData.FINISH, 0, 1)
-	card(Rect2(155, 62, w - 263, 7), Color("d8d3bd"), 4)
-	card(Rect2(155, 62, maxf(7, (w - 263) * progress), 7), INK, 4)
 	button(Rect2(w - 72, 28, 50, 50), "Ⅱ", "pause")
 	txt("%02d:%02d" % [int(game.elapsed) / 60, int(game.elapsed) % 60], Vector2(145, 113), 17)
 	coin_pill(w - 133, 98, player.collected)
@@ -152,21 +319,9 @@ func draw_race(w: float, h: float) -> void:
 	for racer in game.runners:
 		var x := 28 + clampf(racer.position.z / TrackData.FINISH, 0, 1) * (w - 56)
 		draw_circle(Vector2(x, bar_y), 5 if racer.is_player else 3, LIME if racer.is_player else Color("768477"))
-	if player.boost_left > 0:
-		card(Rect2(w * .5 - 90, h * .61, 180, 40), LIME, 20)
-		center("踏墨飞跃  ×1.6", w * .5, h * .61 + 26, 17, PAPER)
-	if game.elapsed < 8:
-		card(Rect2(w * .5 - 155, h - 110, 310, 48), Color(.17, .23, .18, .88), 24)
-		center("左右选路线 · 碰墙自动攀爬", w * .5, h - 79, 16, PAPER)
-	center("‹", 42, h - 30, 38, Color(.08, .24, .28, .5))
-	center("›", w - 42, h - 30, 38, Color(.08, .24, .28, .5))
 	if game.state == "countdown":
 		var text_value := str(maxi(1, ceili(game.countdown)))
 		center(text_value, w * .5, h * .43, 100, PAPER)
-		center("提气，踏云而行", w * .5, h * .43 + 45, 20)
-	if player.traversal != "run":
-		card(Rect2(w*.5-85,h*.52,170,36),INK,18)
-		center("向上攀爬" if player.traversal=="climb" else "贴墙滑铲",w*.5,h*.52+24,16,PAPER)
 
 func panel_header(w: float, title_value: String, eyebrow: String) -> void:
 	draw_rect(Rect2(Vector2.ZERO, size), Color(.94, .91, .82, .97))
@@ -177,16 +332,24 @@ func panel_header(w: float, title_value: String, eyebrow: String) -> void:
 
 func draw_shop(w: float, h: float) -> void:
 	panel_header(w, "换个心情，再出发", "衣冠  /  浪客行装")
-	var cols := 2 if w < 700 else 4
+	var cols := 2 if w < 700 else 5
+	var skin_ids := Save.RIVAL_SKINS.duplicate()
+	for i in range(1, Save.STREET_SKIN):
+		skin_ids.append(i)
 	var cw := (w - 56 - (cols - 1) * 14) / cols
-	var ch := minf(157, (h - 224) / ceilf(8.0 / cols) - 12)
-	for i in 8:
-		var x := 28 + (i % cols) * (cw + 14)
-		var y := 194 + int(i / cols) * (ch + 12)
+	var ch := minf(157, (h - 224) / ceilf(float(skin_ids.size()) / cols) - 12)
+	for slot in skin_ids.size():
+		var i: int = skin_ids[slot]
+		var x := 28 + (slot % cols) * (cw + 14)
+		var y := 194 + floorf(float(slot) / cols) * (ch + 12)
 		card(Rect2(x, y, cw, ch), PAPER, 20, INK if int(Save.data.skin) == i else Color.TRANSPARENT)
-		draw_circle(Vector2(x + 30, y + 32), 13, Color(Save.COLORS[i]))
+		var outfit := PaperRunner.outfit_atlas(i)
+		if outfit:
+			draw_texture_rect_region(outfit, Rect2(x + 12, y + 8, 36, 49), Rect2(345, 65, 78, 113))
+		else:
+			draw_circle(Vector2(x + 30, y + 32), 13, Color(Save.COLORS[i]))
 		txt(Save.NAMES[i], Vector2(x + 52, y + 39), 17)
-		var label := "使用中" if int(Save.data.skin) == i else ("穿上" if i in Save.data.owned else "%d 金币解锁" % (i * 80))
+		var label := "使用中" if int(Save.data.skin) == i else ("穿上" if i in Save.data.owned else "%d 金币解锁" % Save.skin_cost(i))
 		button(Rect2(x + 12, y + ch - 61, cw - 24, 43), label, "skin", int(Save.data.skin) == i, i)
 
 func draw_daily(w: float, h: float) -> void:

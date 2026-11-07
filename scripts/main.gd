@@ -41,6 +41,7 @@ var frame_peak_primitives := 0
 var measured_frames := 0
 var benchmark_next_log := 10.0
 var finish_reveal := 1.0
+var camera_shake_left := 0.0
 
 func _ready() -> void:
 	Engine.max_fps=60
@@ -50,14 +51,11 @@ func _ready() -> void:
 	Input.emulate_touch_from_mouse = Platform.bridge == null
 	audio = AudioScript.new()
 	add_child(audio)
-	var keys := ["runner_0", "runner_1", "runner_2", "accessory_cap", "accessory_backpack", "accessory_mohawk", "accessory_crown", "accessory_headphones", "roof_wide", "roof_narrow", "roof_short", "roof_raised", "roof_corner", "roof_slope", "boost", "crate", "wall", "rail", "coin", "finish", "checkpoint", "water_tower", "aircon", "chimney", "crane", "city_block", "shadow", "spark"]
-	keys.append("runner_wanderer")
-	keys.append_array(["deck_stone","deck_wood","deck_eaves","deck_bridge","basket","screen","bell","ink_pad","cloud_pad","finish_scroll","ink_drop"])
+	var keys := ["roof_wide", "roof_narrow", "roof_short", "roof_raised", "roof_corner", "roof_slope", "boost", "crate", "wall", "rail", "coin", "checkpoint", "water_tower", "aircon", "chimney", "crane", "city_block", "shadow", "spark"]
+	keys.append_array(["deck_stone","deck_wood","deck_eaves","deck_bridge","basket","screen","bell","ink_pad","cloud_pad","ink_drop"])
 	for key in keys:
 		var category := "interactive"
-		if key.begins_with("runner_"): category = "characters"
-		elif key.begins_with("accessory_"): category = "accessories"
-		elif key.begins_with("roof_") or key.begins_with("deck_"): category = "track"
+		if key.begins_with("roof_") or key.begins_with("deck_"): category = "track"
 		elif key in ["water_tower", "aircon", "chimney", "crane"]: category = "props"
 		elif key == "city_block": category = "background"
 		elif key in ["shadow", "spark", "ink_drop"]: category = "effects"
@@ -91,7 +89,7 @@ func _ready() -> void:
 			state="race"
 			var roof: Dictionary=track.sections[1][0]
 			player.grounded=false
-			if arg=="--review-climb": player.position=Vector3(roof.x,float(roof.height)-3.5,float(roof.start)-.4)
+			if arg=="--review-climb": player.position=Vector3(roof.x,float(roof.height)-1.5,float(roof.start)-.4)
 			else: player.position=Vector3(float(roof.x)-float(roof.width)*.5-.3,float(roof.height)-1.5,float(roof.start)+7)
 			player.target_x=player.position.x
 		if arg=="--review-boost":
@@ -159,10 +157,18 @@ func reset_runners() -> void:
 		remove_child(racer)
 		racer.queue_free()
 	runners.clear()
+	var rival_skins: Array = []
 	for i in 7:
 		var racer := RunnerScript.new()
 		add_child(racer)
-		racer.setup(i, self, models["runner_wanderer"] if i==0 else models["runner_%d" % (i % 3)], Color(Save.COLORS[(i+1) % 8]))
+		var skin: int = Save.data.skin
+		if i > 0:
+			# Draw without replacement within each pass through the skin pool.
+			if rival_skins.is_empty():
+				rival_skins = Save.RIVAL_SKINS.duplicate()
+				rival_skins.shuffle()
+			skin = rival_skins.pop_back()
+		racer.setup(i, self, skin)
 		runners.append(racer)
 	player = runners[0]
 	for i in runners.size():
@@ -179,6 +185,12 @@ func reset_runners() -> void:
 		racer.target_x = racer.position.x
 		racer.remember_safe(roof)
 	taken_coins.clear()
+	hud.reset_progress_scroll()
+	hud.reset_energy_bar()
+	world.reset_combat()
+	camera_shake_left = 0
+	camera.h_offset = 0
+	camera.v_offset = 0
 	update_runner_visibility()
 
 func start_race() -> void:
@@ -209,14 +221,18 @@ func _physics_process(dt: float) -> void:
 			get_tree().quit(1)
 		if benchmark: player.update_ai(dt)
 		var direction := float(Input.is_physical_key_pressed(KEY_D) or Input.is_physical_key_pressed(KEY_RIGHT)) - float(Input.is_physical_key_pressed(KEY_A) or Input.is_physical_key_pressed(KEY_LEFT))
-		if direction != 0: player.target_x = clampf(player.target_x + direction * dt * 10, -10, 10)
+		if direction != 0: player.target_x = clampf(player.target_x + screen_horizontal(direction) * dt * 10, -10, 10)
 		for racer in runners: racer.tick(dt, elapsed)
 		if player.finished: finish_race()
+	elif state == "result":
+		for racer in runners:
+			if racer.finished: racer.tick(dt,elapsed)
 	if state != "paused": world.update_view(player.position.z, dt)
 	update_runner_visibility()
 	update_camera(dt)
 
 func update_runner_visibility() -> void:
+	world.sword_fx.set_frozen(state != "race")
 	# Keep two nearby rivals on screen. The others remain physically farther away,
 	# simulating their actual progress outside the drawing window.
 	var first: RoofRunner=null
@@ -224,7 +240,7 @@ func update_runner_visibility() -> void:
 	var first_distance := INF
 	var second_distance := INF
 	for racer in runners:
-		if racer.is_player: continue
+		if racer.is_player or racer.defeated_left > 0: continue
 		var delta := racer.position.z-player.position.z
 		if delta < -10 or delta > 52: continue
 		var distance := absf(delta)
@@ -238,7 +254,7 @@ func update_runner_visibility() -> void:
 			second_distance=distance
 	for racer in runners:
 		racer.visible=racer.is_player or racer==first or racer==second
-		if racer.animation: racer.animation.speed_scale=0 if state=="paused" or not racer.visible else 1
+		racer.paper_visual.paused = state == "paused"
 
 func _process(dt: float) -> void:
 	if state=="result": finish_reveal=minf(1,finish_reveal+dt*1.6)
@@ -287,7 +303,11 @@ func update_camera(dt: float) -> void:
 		target = Vector3(-.6, camera_height + 2.5, 16.0)
 	camera.position = camera.position.lerp(desired, 1 - exp(-dt * 6))
 	camera.look_at(target)
-	camera.fov = lerpf(camera.fov, 64.0 if player.boost_left > 0 else 58.0, minf(1, dt * 4))
+	camera.fov = lerpf(camera.fov, 64.0 if player.charge_left > 0 or player.boost_left > 0 or player.slash_boost_left > 0 else 58.0, minf(1, dt * 4))
+	if state != "paused": camera_shake_left = maxf(0, camera_shake_left - dt)
+	var shake := .065 * camera_shake_left / .1
+	camera.h_offset = sin(camera_shake_left * 360) * shake
+	camera.v_offset = cos(camera_shake_left * 290) * shake * .65
 
 func collect_coins(racer: RoofRunner) -> void:
 	for i in track.coins.size():
@@ -296,13 +316,16 @@ func collect_coins(racer: RoofRunner) -> void:
 		if absf(racer.position.z - float(coin.z)) < 1 and absf(racer.position.x - float(coin.x)) < 1.0 and absf(racer.position.y-(float(coin.y)-1.0)) < 1.5:
 			taken_coins[i] = true
 			racer.collected += 1
+			racer.charge_from_coin()
 			audio.cue("coin")
 			world.burst(Vector3(coin.x, coin.y, coin.z), 3,"coin")
 
 func emit_fx(pos: Vector3, kind: String) -> void:
-	world.burst(pos, 8 if kind == "boost" else (2 if kind=="hit" else 5),kind)
+	if kind in ["jump", "land", "boost"]:
+		world.sword_fx.footfall(pos, kind, player)
+	else:
+		world.burst(pos, 2 if kind == "hit" else 5, kind)
 	audio.cue(kind)
-	if kind == "hit": hud.say("碰到障碍了，寻找空隙继续跑")
 
 func on_player_fall() -> void:
 	finger = -1
@@ -317,6 +340,9 @@ func player_rank() -> int:
 	return rank
 
 func finish_race() -> void:
+	if state == "result": return
+	player.cancel_attack()
+	world.sword_fx.clear()
 	final_rank = player_rank()
 	reward = Save.complete_race(final_rank, elapsed, player.collected, player.boost_count)
 	Platform.submit_score(elapsed)
@@ -380,6 +406,10 @@ func _pause_on_hide() -> void:
 	finger = -1
 	if state == "race": state = "paused"
 
+func screen_horizontal(offset: float) -> float:
+	# Running toward +Z makes screen-right point toward negative world X.
+	return offset * signf(camera.global_basis.x.x)
+
 func _unhandled_input(event: InputEvent) -> void:
 	if benchmark: return
 	if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
@@ -396,9 +426,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			if drag_distance < 12:
 				var direction := -1 if event.position.x < get_viewport().get_visible_rect().size.x*.5 else 1
 				var current_lane := clampi(roundi(player.target_x/6.0)+1,0,2)
-				player.target_x=TrackData.LANES[clampi(current_lane+direction,0,2)]
+				player.target_x=TrackData.LANES[clampi(current_lane+int(screen_horizontal(direction)),0,2)]
 			finger = -1
 	elif event is InputEventScreenDrag and event.index == finger:
 		var delta: float = event.position.x - drag_origin.x
 		drag_distance = maxf(drag_distance, absf(delta))
-		player.target_x = clampf(drag_start_x + delta / get_viewport().get_visible_rect().size.x * 20, -10, 10)
+		player.target_x = clampf(drag_start_x + screen_horizontal(delta) / get_viewport().get_visible_rect().size.x * 20, -10, 10)
