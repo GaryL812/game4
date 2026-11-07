@@ -51,14 +51,11 @@ func _ready() -> void:
 	Input.emulate_touch_from_mouse = Platform.bridge == null
 	audio = AudioScript.new()
 	add_child(audio)
-	var keys := ["roof_wide", "roof_narrow", "roof_short", "roof_raised", "roof_corner", "roof_slope", "boost", "crate", "wall", "rail", "coin", "checkpoint", "water_tower", "aircon", "chimney", "crane", "city_block", "shadow", "spark"]
-	keys.append_array(["deck_stone","deck_wood","deck_eaves","deck_bridge","basket","screen","bell","ink_pad","cloud_pad","ink_drop"])
+	var keys := ["deck_stone","deck_wood","deck_eaves","deck_bridge","basket","screen","bell","ink_pad","cloud_pad","coin","shadow","ink_drop"]
 	for key in keys:
 		var category := "interactive"
-		if key.begins_with("roof_") or key.begins_with("deck_"): category = "track"
-		elif key in ["water_tower", "aircon", "chimney", "crane"]: category = "props"
-		elif key == "city_block": category = "background"
-		elif key in ["shadow", "spark", "ink_drop"]: category = "effects"
+		if key.begins_with("deck_"): category = "track"
+		elif key in ["shadow", "ink_drop"]: category = "effects"
 		models[key] = load("res://assets/models/%s/%s.glb" % [category, key])
 	track = TrackData.new()
 	setup_environment()

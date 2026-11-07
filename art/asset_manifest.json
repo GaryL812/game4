@@ -1,183 +1,15 @@
 [
   {
-    "name": "runner_0",
-    "category": "characters",
-    "triangles": 196,
-    "bytes": 64912
-  },
-  {
-    "name": "runner_1",
-    "category": "characters",
-    "triangles": 208,
-    "bytes": 66524
-  },
-  {
-    "name": "runner_2",
-    "category": "characters",
-    "triangles": 208,
-    "bytes": 66524
-  },
-  {
-    "name": "runner_wanderer",
-    "category": "characters",
-    "triangles": 433,
-    "bytes": 108180
-  },
-  {
-    "name": "runner_ink_stick",
-    "category": "characters",
-    "triangles": 500,
-    "bytes": 239156
-  },
-  {
-    "name": "accessory_cap",
-    "category": "accessories",
-    "triangles": 44,
-    "bytes": 6160
-  },
-  {
-    "name": "accessory_backpack",
-    "category": "accessories",
-    "triangles": 12,
-    "bytes": 2448
-  },
-  {
-    "name": "accessory_mohawk",
-    "category": "accessories",
-    "triangles": 36,
-    "bytes": 4688
-  },
-  {
-    "name": "accessory_crown",
-    "category": "accessories",
-    "triangles": 64,
-    "bytes": 6908
-  },
-  {
-    "name": "accessory_headphones",
-    "category": "accessories",
-    "triangles": 36,
-    "bytes": 4708
-  },
-  {
-    "name": "roof_wide",
-    "category": "track",
-    "triangles": 72,
-    "bytes": 8064
-  },
-  {
-    "name": "roof_narrow",
-    "category": "track",
-    "triangles": 72,
-    "bytes": 8068
-  },
-  {
-    "name": "roof_short",
-    "category": "track",
-    "triangles": 72,
-    "bytes": 8064
-  },
-  {
-    "name": "roof_raised",
-    "category": "track",
-    "triangles": 72,
-    "bytes": 8068
-  },
-  {
-    "name": "roof_corner",
-    "category": "track",
-    "triangles": 72,
-    "bytes": 8064
-  },
-  {
-    "name": "roof_slope",
-    "category": "track",
-    "triangles": 12,
-    "bytes": 2460
-  },
-  {
-    "name": "boost",
-    "category": "interactive",
-    "triangles": 84,
-    "bytes": 9268
-  },
-  {
-    "name": "crate",
-    "category": "interactive",
-    "triangles": 36,
-    "bytes": 4644
-  },
-  {
-    "name": "wall",
-    "category": "interactive",
-    "triangles": 24,
-    "bytes": 3516
-  },
-  {
-    "name": "rail",
-    "category": "interactive",
-    "triangles": 36,
-    "bytes": 4672
-  },
-  {
     "name": "coin",
     "category": "interactive",
     "triangles": 28,
     "bytes": 3620
   },
   {
-    "name": "finish",
-    "category": "interactive",
-    "triangles": 192,
-    "bytes": 19324
-  },
-  {
-    "name": "checkpoint",
-    "category": "interactive",
-    "triangles": 24,
-    "bytes": 3508
-  },
-  {
-    "name": "water_tower",
-    "category": "props",
-    "triangles": 102,
-    "bytes": 10524
-  },
-  {
-    "name": "aircon",
-    "category": "props",
-    "triangles": 40,
-    "bytes": 4668
-  },
-  {
-    "name": "chimney",
-    "category": "props",
-    "triangles": 24,
-    "bytes": 3468
-  },
-  {
-    "name": "crane",
-    "category": "props",
-    "triangles": 36,
-    "bytes": 4624
-  },
-  {
-    "name": "city_block",
-    "category": "background",
-    "triangles": 12,
-    "bytes": 2340
-  },
-  {
     "name": "shadow",
     "category": "effects",
     "triangles": 10,
     "bytes": 1848
-  },
-  {
-    "name": "spark",
-    "category": "effects",
-    "triangles": 12,
-    "bytes": 2416
   },
   {
     "name": "deck_stone",
@@ -234,45 +66,9 @@
     "bytes": 13504
   },
   {
-    "name": "finish_scroll",
-    "category": "interactive",
-    "triangles": 118,
-    "bytes": 12004
-  },
-  {
-    "name": "pavilion",
-    "category": "props",
-    "triangles": 90,
-    "bytes": 9760
-  },
-  {
-    "name": "pagoda",
-    "category": "props",
-    "triangles": 246,
-    "bytes": 24424
-  },
-  {
-    "name": "bamboo",
-    "category": "props",
-    "triangles": 138,
-    "bytes": 14776
-  },
-  {
-    "name": "mountain_ridge",
-    "category": "background",
-    "triangles": 48,
-    "bytes": 4848
-  },
-  {
     "name": "ink_drop",
     "category": "effects",
     "triangles": 2,
     "bytes": 1376
-  },
-  {
-    "name": "mist_card",
-    "category": "effects",
-    "triangles": 2,
-    "bytes": 1380
   }
 ]

@@ -8,6 +8,8 @@ const PAPER := Color("f2ead4")
 const PaperRunner = preload("res://scripts/paper_runner.gd")
 const SCROLL_TEXTURE = preload("res://assets/ui/progress_scroll_clean.png")
 const SCROLL_SHADER = preload("res://scripts/progress_scroll.gdshader")
+const SCROLL_PAPER_OPACITY := .48
+const SCROLL_ROLLER_OPACITY := .65
 const ENERGY_TEXTURE = preload("res://assets/ui/energy_bar.png")
 const ENERGY_SHADER = preload("res://scripts/energy_bar.gdshader")
 var game
@@ -101,6 +103,7 @@ func scroll_piece(piece_name: String, region: Vector4, roller: bool) -> TextureR
 	piece.texture = SCROLL_TEXTURE
 	piece.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	piece.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	piece.self_modulate.a = SCROLL_ROLLER_OPACITY if roller else SCROLL_PAPER_OPACITY
 	var ink := ShaderMaterial.new()
 	ink.shader = SCROLL_SHADER
 	ink.set_shader_parameter("source_region",region)
